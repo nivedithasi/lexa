@@ -46,6 +46,11 @@ class Plan2Explore(tools.Module):
         act=config.act)
     self._networks = [
         networks.DenseHead(**kw) for _ in range(config.disag_models)]
+    """
+    TODO:
+    Add a DVD like network head here which will take (1) a robot trajectory
+    and (2) an embedded human video trajectory, and predict their similarity
+    """
     self._opt = tools.Optimizer(
         'ensemble', config.model_lr, config.opt_eps, config.grad_clip,
         config.weight_decay, opt=config.opt)
@@ -58,6 +63,13 @@ class Plan2Explore(tools.Module):
         'deter': start['deter'],
         'feat': feat,
     }[self._config.disag_target]
+    """
+    TODO:
+    Will need to add two new things here
+    First, will need to write/call a function to train the DVD model (only on the paired human videos) and their labels
+    Second, will need to modify (or make a new version) of the _intrinsic_reward function which is not just the 
+    model disagreement, but also the learned models similarity score between robot behavior and some target video(s)
+    """
     metrics.update(self._train_ensemble(feat, target))
     metrics.update(self._behavior.train(start, self._intrinsic_reward)[-1])
     return None, metrics

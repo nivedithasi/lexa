@@ -93,6 +93,14 @@ def main(logdir, config):
   print('Simulate agent.')
   train_dataset = make_dataset(train_eps, config)
   eval_dataset = iter(make_dataset(eval_eps, config))
+  """
+  TODO: 
+  Create a new dataset here which returns clips from the something-something dataset
+  Something like this class: https://github.com/anniesch/dvd/blob/main/data_loader_av.py#L21
+  but it will need to use a tensorflow data loader instead of pytorch.
+  Also will probably make sense for it to return two clips of the same task per batch, 
+  for training the DVD model
+  """
   agent = GCDreamer(config, logger, train_dataset)
   if (logdir / 'variables.pkl').exists():
     agent.load(logdir / 'variables.pkl')

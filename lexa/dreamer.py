@@ -52,6 +52,10 @@ class Dreamer(tools.Module):
     config.imag_gradient_mix = (
         lambda x=config.imag_gradient_mix: tools.schedule(x, self._step))
     self._dataset = iter(dataset)
+    """
+    TODO: 
+    Will need to do the same new dataset here as above for the Something-Something dataset.
+    """
     if 'gcdreamer' in config.task_behavior:
       self._wm = gcdreamer_wm.GCWorldModel(self._step, config)
     else:
@@ -82,6 +86,10 @@ class Dreamer(tools.Module):
           else self._config.train_steps)
       for _ in range(steps):
         _data = next(self._dataset)
+        """
+        TODO: 
+        Same here will need to add sampling for the human video dataset and pass it to _train
+        """
         start, feat = self._train(_data)
 
       if self._should_log(step):
@@ -97,6 +105,7 @@ class Dreamer(tools.Module):
       self._step.assign_add(len(reset))
       self._logger.step = self._config.action_repeat \
           * self._step.numpy().item()
+      import pdb; pdb.set_trace()
       return action, state
 
     else:
@@ -167,7 +176,11 @@ class Dreamer(tools.Module):
   @tf.function
   def _train(self, data):
     metrics = {}
-    embed, post, feat, kl, mets = self._wm.train(data)
+    embed, post, feat, kl, mets = self._wm.train(data) 
+    """
+    TODO: 
+    Will need to add something here to get the latent states for the human videos
+    """
     metrics.update(mets)
     start = post
     assert not self._config.pred_discount
@@ -179,6 +192,10 @@ class Dreamer(tools.Module):
       metrics.update(self._task_behavior.train_dd_off_policy(self._wm.encoder(self._wm.preprocess(data))))
 
     if self._config.expl_behavior != 'greedy':
+      """
+      TODO: 
+      Will need to also need to pass the embedded human videos in here
+      """
       mets = self._expl_behavior.train(start, feat, embed, kl)[-1]
       metrics.update({'expl_' + key: value for key, value in mets.items()})
 
