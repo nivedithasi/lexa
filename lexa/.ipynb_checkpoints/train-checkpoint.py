@@ -97,7 +97,7 @@ def main(logdir, config):
   train_dataset = make_dataset(train_eps, config)
   eval_dataset = iter(make_dataset(eval_eps, config))
   args = load_args()
-  dvd_data = VideoFolder(args,
+  train_data = VideoFolder(args,
                              root=args.human_data_dir,
                              json_file_input=args.json_data_train,
                              json_file_labels=args.json_file_labels,
@@ -110,7 +110,10 @@ def main(logdir, config):
                              transform_post=transform_post,
                              robot_demo_transform=robot_demo_transform,
                              )
-
+#   example = episodes[next(iter(episodes.keys()))]
+#   types = {k: v.dtype for k, v in example.items()}
+#   shapes = {k: (None,) + v.shape[1:] for k, v in example.items()}
+#   dvd_dataset = tf.data.Dataset.from_generator(train_data, types, shapes)
   """
   TODO: 
   Create a new dataset here which returns clips from the something-something dataset
@@ -119,7 +122,7 @@ def main(logdir, config):
   Also will probably make sense for it to return two clips of the same task per batch, 
   for training the DVD model
   """
-  agent = GCDreamer(config, logger, train_dataset, dvd_data)
+  agent = GCDreamer(config, logger, train_dataset)
   if (logdir / 'variables.pkl').exists():
     agent.load(logdir / 'variables.pkl')
     agent._should_pretrain._once = False

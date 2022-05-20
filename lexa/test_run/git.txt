@@ -1,0 +1,47 @@
+c31ca351b64debc9ad75d29f9fc4850a0f893b8d
+diff --git a/lexa/train.py b/lexa/train.py
+index 2c08efd..2f25b8e 100644
+--- a/lexa/train.py
++++ b/lexa/train.py
+@@ -6,6 +6,8 @@ import numpy as np
+ import pickle
+ import pathlib
+ import off_policy
++from dataloader import VideoFolder
++from args import load_args
+ from dreamer import Dreamer, setup_dreamer, create_envs, count_steps, make_dataset, parse_dreamer_args
+ 
+ 
+@@ -77,6 +79,7 @@ def process_eps_data(eps_data):
+   for key in keys:
+     new_data[key] = np.array([eps_data[i][key] for i in range(len(eps_data))]).squeeze()
+   return new_data
++   
+ 
+ def main(logdir, config):
+   logdir, logger = setup_dreamer(config, logdir)
+@@ -93,6 +96,24 @@ def main(logdir, config):
+   print('Simulate agent.')
+   train_dataset = make_dataset(train_eps, config)
+   eval_dataset = iter(make_dataset(eval_eps, config))
++  args = load_args()
++  train_data = VideoFolder(args,
++                             root=args.human_data_dir,
++                             json_file_input=args.json_data_train,
++                             json_file_labels=args.json_file_labels,
++                             clip_size=args.traj_length,
++                             nclips=1,
++                             step_size=1,
++                             num_tasks=args.num_tasks,
++                             is_val=False,
++                             transform_pre=transform_train_pre,
++                             transform_post=transform_post,
++                             robot_demo_transform=robot_demo_transform,
++                             )
++#   example = episodes[next(iter(episodes.keys()))]
++#   types = {k: v.dtype for k, v in example.items()}
++#   shapes = {k: (None,) + v.shape[1:] for k, v in example.items()}
++#   dvd_dataset = tf.data.Dataset.from_generator(train_data, types, shapes)
+   """
+   TODO: 
+   Create a new dataset here which returns clips from the something-something dataset
