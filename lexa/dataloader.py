@@ -4,16 +4,19 @@ import numpy as np
 import os
 import h5py
 
+import os
+import json
+import numpy as np
 import torchvision
 from transforms_video import *
 
 import torchvision
 from transforms_video import *
 
-from collections import defaultdict, Counter
+from collections import namedtuple, defaultdict, Counter
 import json
 
-
+ListData = namedtuple('ListData', ['id', 'label', 'path'])
 FRAMERATE = 12  # default value
 
 class Augmentor(object):
@@ -82,8 +85,8 @@ class DatasetBase(object):
     To read json data and construct a list containing video sample `ids`,
     `label` and `path`
     """
-    def __init__(self, args, json_path_input, json_path_labels, data_root,
-                 extension, num_tasks, is_test=False, is_val=False):
+    def __init__(self, json_path_input, json_path_labels, data_root,
+                 extension, num_tasks, is_test=False, is_val=False): # add args back
         self.num_tasks = num_tasks
         self.json_path_input = json_path_input
         self.json_path_labels = json_path_labels
@@ -91,15 +94,15 @@ class DatasetBase(object):
         self.extension = extension
         self.is_test = is_test
         self.is_val = is_val
-        self.just_robot = args.just_robot
-        self.sim_dir = args.sim_dir
+        self.just_robot = False #args.just_robot
+        self.sim_dir = 'demos' #args.sim_dir
         
         self.num_occur = defaultdict(int)
         
-        self.tasks = args.human_tasks
-        self.add_demos = args.add_demos
+        self.tasks = [5, 41, 93] #args.human_tasks
+        self.add_demos = 60 #args.add_demos
         if self.add_demos:
-            self.robot_tasks = args.robot_tasks
+            self.robot_tasks = [5, 41, 93] #args.robot_tasks
 
         # preparing data and class dictionary
         self.classes = self.read_json_labels()
@@ -130,6 +133,10 @@ class DatasetBase(object):
                         json_data.append(item)
                         self.num_occur[label] += 1
             
+            """
+            FIX THIS
+            """
+            self.add_demos = 0
             if self.add_demos: 
                 # Add robot demonstrations or extra robot class to json_data, just use id 300000
                 robot_tasks = self.robot_tasks
@@ -199,10 +206,10 @@ class DatasetBase(object):
 
 
 class WebmDataset(DatasetBase):
-    def __init__(self, args, json_path_input, json_path_labels, data_root, num_tasks, 
-                 is_test=False, is_val=False):
+    def __init__(self, json_path_input, json_path_labels, data_root, num_tasks, 
+                 is_test=False, is_val=False): # add args back
         EXTENSION = ".webm"
-        super().__init__(args, json_path_input, json_path_labels, data_root,
+        super().__init__(json_path_input, json_path_labels, data_root,
                          EXTENSION, num_tasks, is_test, is_val)
 
 
@@ -224,13 +231,13 @@ class ImageNetFeatures(DatasetBase):
         
 class VideoFolder():
 
-    def __init__(self, args, root, json_file_input, json_file_labels, clip_size,
+    def __init__(self, root, json_file_input, json_file_labels, clip_size,
                  nclips, step_size, is_val, num_tasks=174, transform_pre=None, transform_post=None,
                  augmentation_mappings_json=None, augmentation_types_todo=None,
-                 is_test=False, robot_demo_transform=None):
+                 is_test=False, robot_demo_transform=None): # add back args later
         self.num_tasks = num_tasks
         self.is_val = is_val
-        self.dataset_object = WebmDataset(args, json_file_input, json_file_labels,
+        self.dataset_object = WebmDataset(json_file_input, json_file_labels,
                                       root, num_tasks=self.num_tasks, is_test=is_test, is_val=is_val)
         self.json_data = self.dataset_object.json_data
         self.classes = self.dataset_object.classes
@@ -238,8 +245,8 @@ class VideoFolder():
         self.root = root
         self.transform_pre = transform_pre
         self.transform_post = transform_post
-        self.im_size = args.im_size
-        self.batch_size = args.batch_size
+        self.im_size = 120 #default
+        self.batch_size = 24 #args.batch_size
 
         self.augmentor = Augmentor(augmentation_mappings_json,
                                    augmentation_types_todo)
@@ -247,11 +254,11 @@ class VideoFolder():
         self.traj_length = clip_size
         self.nclips = nclips
         self.step_size = step_size
-        self.similarity = args.similarity
-        self.add_demos = args.add_demos 
+        self.similarity = True #args.similarity
+        self.add_demos = 60 #args.add_demos 
         if self.add_demos:
             self.robot_demo_transform = robot_demo_transform
-            self.demo_batch_val = args.demo_batch_val
+            self.demo_batch_val = 0.5 #args.demo_batch_val
         
         classes = []
         for key in self.classes_dict.keys():
@@ -263,11 +270,11 @@ class VideoFolder():
             for video in self.json_data:
                 if video.label == c:
                     num_occur[c] += 1
-        if not self.is_val:
-            with open(args.log_dir + '/human_data_tasks.txt', 'w') as f:
+        if not self.is_val: #config.logdir
+            with open('test_run' + '/human_data_tasks.txt', 'w') as f:
                 json.dump(num_occur, f, indent=2)
         else:
-            with open(args.log_dir + '/val_human_data_tasks.txt', 'w') as f:
+            with open('test_run' + '/val_human_data_tasks.txt', 'w') as f:
                 json.dump(num_occur, f, indent=2)
                 
         # Every sample in batch: anchor (randomly selected class A), positive (randomly selected class A), 
@@ -279,6 +286,7 @@ class VideoFolder():
 
         # Make separate robot dictionary:
         self.robot_json_dict = defaultdict(list)
+        print("json data", self.json_data)
         self.total_robot = [] # all robot demos
         for data in self.json_data:
             if data.id == 300000: # robot video
@@ -288,9 +296,9 @@ class VideoFolder():
         print("Number of human videos: ", len(self.json_data), len(self.classes), "Total:", self.__len__())
         
         # Tasks used
-        self.tasks = args.human_tasks
+        self.tasks = [5, 41, 93] #args.human_tasks
         if self.add_demos:
-            self.robot_tasks = args.robot_tasks
+            self.robot_tasks = [5, 41, 93] # args.robot_tasks
         assert(sum(num_occur.values()) == len(self.json_data))        
             
     def process_video(self, item):
@@ -301,6 +309,7 @@ class VideoFolder():
             print("Issue with opening the video, path:", item.path)
             assert(False)
 
+        print("No issue opening")
         try:
             imgs = []
             imgs = [f.to_rgb().to_ndarray() for f in reader.decode(video=0)]
@@ -309,6 +318,7 @@ class VideoFolder():
                   'list returned.'.format(type(exception).__name__, item.path))
         orig_imgs = np.array(imgs).copy() 
         
+        print("No issue decoding")
         target_idx = self.classes_dict[item.label] 
         if not self.num_tasks == 174:
             target_idx = self.tasks.index(target_idx)
@@ -323,9 +333,12 @@ class VideoFolder():
             imgs_copy = imgs_copy.permute(1, 0, 2, 3)
             return imgs_copy
         
+        print("Before trnasform pre")
         imgs = self.transform_pre(imgs)
+        print("Before augment")
         imgs, label = self.augmentor(imgs, item.label)
         imgs = self.transform_post(imgs)
+        print("after post augmentor")
         
         num_frames = len(imgs)        
         if self.nclips > -1:
@@ -356,6 +369,7 @@ class VideoFolder():
         [!] FPS jittering doesn't work with AV dataloader as of now
         """
             
+        print("called get item")
         if self.similarity:
             # Need triplet for each sample
             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val:
@@ -363,26 +377,27 @@ class VideoFolder():
             else:
                 item = random.choice(self.json_data) 
             
+            print("Item label: ", item.label)
             # Get random anchor
             # If adding demos, get 1/2 robot anchors for a more balanced batch
             if self.add_demos and (self.classes_dict[item.label] in self.robot_tasks) and (np.random.uniform(0.0, 1.0) < self.demo_batch_val): 
                 anchor = random.choice(self.robot_json_dict[item.label])
             else:
                 anchor = random.choice(self.json_dict[item.label])
-            
+            print("Right before negative")
             # Get negative 
             neg = random.choice(self.json_data)
             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
                 neg = random.choice(self.total_robot)
             while neg.label == item.label:
                 neg = random.choice(self.json_data)
-            
+            print("Right before pos2")
             pos2 = random.choice(self.json_data)
 #             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
 #                 neg = random.choice(self.total_robot)
             while pos2.label != item.label:
                 neg = random.choice(self.json_data)
-                
+            print("Right before processing")    
             pos_data = self.process_video(item) 
             pos2_data = self.process_video(pos2)
             anchor_data  = self.process_video(anchor)

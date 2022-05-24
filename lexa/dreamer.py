@@ -216,9 +216,13 @@ def count_steps(folder):
 
 
 def make_dataset(episodes, config):
+  # print("In MAKE DATASET")
+  print("Episodes: ", episodes)
   example = episodes[next(iter(episodes.keys()))]
   types = {k: v.dtype for k, v in example.items()}
+  print("This is types: ", types)
   shapes = {k: (None,) + v.shape[1:] for k, v in example.items()}
+  print("This is shapes: ", shapes)
   generator = lambda: tools.sample_episodes(
       episodes, config.batch_length, config.oversample_ends)
   dataset = tf.data.Dataset.from_generator(generator, types, shapes)
@@ -341,6 +345,7 @@ def create_envs(config, logger):
   make = functools.partial(make_env, config, logger, train_eps=train_eps, eval_eps=eval_eps)
   train_envs = [make('train', log_per_goal=True) for _ in range(config.envs)]
   eval_envs = [make('eval', use_goal_idx=True, log_per_goal=config.test_log_per_goal) for _ in range(config.envs)]
+  print("Eval envs in dreamer/create_envs: ", eval_envs)
   acts = train_envs[0].action_space
   config.num_actions = acts.n if hasattr(acts, 'n') else acts.shape[0]
   return eval_envs, eval_eps, train_envs, train_eps, acts

@@ -8,14 +8,16 @@ import pathlib
 import off_policy
 from dataloader import VideoFolder
 from args import load_args
+import torchvision
+from transforms_video import ComposeMix, RandomCropVideo, RandomRotationVideo, Scale
 from dreamer import Dreamer, setup_dreamer, create_envs, count_steps, make_dataset, parse_dreamer_args
 
 
 class GCDreamer(Dreamer):
-  def __init__(self, config, logger, dataset):
+  def __init__(self, config, logger, dataset, dvd_dataset):
     if config.offpolicy_opt:
       self._off_policy_handler = off_policy.GCOffPolicyOpt(config)
-    super().__init__(config, logger, dataset)
+    super().__init__(config, logger, dataset, dvd_dataset)
     self._should_expl_ep = tools.EveryNCalls(config.expl_every_ep)
     self.skill_to_use = tf.zeros([0], dtype=tf.float16)
 
@@ -72,7 +74,6 @@ class GCDreamer(Dreamer):
     # random_goals = tf.random.shuffle(random_goals)
     return random_goals[:obs['image_goal'].shape[0]], random_goal_states[:obs['image_goal'].shape[0]]
 
-
 def process_eps_data(eps_data):
   keys = eps_data[0].keys()
   new_data = {}
@@ -80,6 +81,22 @@ def process_eps_data(eps_data):
     new_data[key] = np.array([eps_data[i][key] for i in range(len(eps_data))]).squeeze()
   return new_data
    
+def make_dataset_dvd(dvd_data, config):
+      print("DVD Data in make_dataset_dvd", dvd_data)
+      print("This is 0 of dvd:", dvd_data[1])
+      print("This is iter on dvd:", iter(dvd_data))
+      iterator = iter(dvd_data)
+#       print("This is next iter on dvd:", next(iter(dvd_data)))
+      print("This is next: ", print(iterator.get_next()))
+      example = dvd_data[next(iter(dvd_data))]
+      types = {k: v.dtype for k, v in example.items()}
+      print("This is types:", types)
+      shapes = {k: (None,) + v.shape[1:] for k, v in example.items()}
+      print("This is shapes:", shapes)
+      dataset = tf.data.Dataset.from_generator(dvd_data, types, shapes)
+      dataset = dataset.batch(config.batch_size, drop_remainder=True)
+      dataset = dataset.prefetch(10)
+      return dataset
 
 def main(logdir, config):
   logdir, logger = setup_dreamer(config, logdir)
@@ -87,6 +104,33 @@ def main(logdir, config):
 
   prefill = max(0, config.prefill - count_steps(config.traindir))
   print(f'Prefill dataset ({prefill} steps).')
+#   args = load_args()
+  upscale_size_train = int(1.4 * 64)
+  upscale_size_eval = int(1.0 * 64)
+  transform_train_pre = ComposeMix([
+            [RandomRotationVideo(15), "vid"],
+            [Scale(upscale_size_train), "img"],
+            [RandomCropVideo(64), "img"],
+             ])
+  transform_eval_pre = ComposeMix([
+          [Scale(upscale_size_eval), "img"],
+          [torchvision.transforms.ToPILImage(), "img"],
+          [torchvision.transforms.CenterCrop(64), "img"],
+           ])
+  transform_post = ComposeMix([[torchvision.transforms.ToTensor(), "img"],])
+  dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/',
+                           json_file_input='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json',
+                           json_file_labels='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json',
+                             clip_size= 0, #args.traj_length,
+                             nclips=1,
+                             step_size=1,
+                             num_tasks=2, #args.num_tasks,
+                             is_val=False,
+                             transform_pre=transform_train_pre,
+                             transform_post=transform_post,
+                             ) # add args back
+    
+  dvd_dataset = make_dataset_dvd(dvd_data, config)
   random_agent = lambda o, d, s: ([acts.sample() for _ in d], s)
   tools.simulate(random_agent, train_envs, prefill)
   if count_steps(config.evaldir) == 0:
@@ -96,20 +140,7 @@ def main(logdir, config):
   print('Simulate agent.')
   train_dataset = make_dataset(train_eps, config)
   eval_dataset = iter(make_dataset(eval_eps, config))
-  args = load_args()
-  dvd_data = VideoFolder(args,
-                             root=args.human_data_dir,
-                             json_file_input=args.json_data_train,
-                             json_file_labels=args.json_file_labels,
-                             clip_size=args.traj_length,
-                             nclips=1,
-                             step_size=1,
-                             num_tasks=args.num_tasks,
-                             is_val=False,
-                             transform_pre=transform_train_pre,
-                             transform_post=transform_post,
-                             robot_demo_transform=robot_demo_transform,
-                             )
+  dvd_iter = iter(make_dataset(dvd_data, config))
 
   """
   TODO: 

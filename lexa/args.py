@@ -21,7 +21,7 @@ def load_args():
     parser.add_argument('--gpus', '-g', default = str(0), help="GPU ids to use. Please enter a comma separated list")
     parser.add_argument('--use_cuda', default=True, help="to use GPUs")
     parser.add_argument('--num_tasks', type=int, default=2, help='number of tasks')
-    parser.add_argument('--human_data_dir', type=str, help='dir to human data', required=True)
+    #reparser.add_argument('--human_data_dir', type=str, help='dir to human data', required=True)
     parser.add_argument('--sim_dir', type=str, default='demos/', help='dir to sim data')
     parser.add_argument('--root', type=str, default='./', help='root dir') 
     parser.add_argument('--log_dir', type=str, default='trained_models/', help='log directory')
