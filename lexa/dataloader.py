@@ -12,6 +12,7 @@ from transforms_video import *
 
 import torchvision
 from transforms_video import *
+import tensorflow as tf
 
 from collections import namedtuple, defaultdict, Counter
 import json
@@ -286,7 +287,7 @@ class VideoFolder():
 
         # Make separate robot dictionary:
         self.robot_json_dict = defaultdict(list)
-        print("json data", self.json_data)
+        #print("json data", self.json_data)
         self.total_robot = [] # all robot demos
         for data in self.json_data:
             if data.id == 300000: # robot video
@@ -317,6 +318,7 @@ class VideoFolder():
             print('{}: WEBM reader cannot open {}. Empty '
                   'list returned.'.format(type(exception).__name__, item.path))
         orig_imgs = np.array(imgs).copy() 
+        imgs = np.array(imgs)
         
         print("No issue decoding")
         target_idx = self.classes_dict[item.label] 
@@ -324,16 +326,17 @@ class VideoFolder():
             target_idx = self.tasks.index(target_idx)
             
         # If robot demonstration
-        if self.add_demos and item.id == 300000: 
-            imgs = self.robot_demo_transform(imgs)
-            frame = random.randint(0, max(len(imgs) - self.traj_length, 0))
-            length = min(self.traj_length, len(imgs))
-            imgs = imgs[frame: length + frame]
-            imgs_copy = torch.stack(imgs)
-            imgs_copy = imgs_copy.permute(1, 0, 2, 3)
-            return imgs_copy
+#         if self.add_demos and item.id == 300000: 
+#             imgs = self.robot_demo_transform(imgs)
+#             frame = random.randint(0, max(len(imgs) - self.traj_length, 0))
+#             length = min(self.traj_length, len(imgs))
+#             imgs = imgs[frame: length + frame]
+#             imgs_copy = torch.stack(imgs)
+#             imgs_copy = imgs_copy.permute(1, 0, 2, 3)
+#             return imgs_copy
         
         print("Before trnasform pre")
+        print(imgs.shape, imgs.min(), imgs.max())
         imgs = self.transform_pre(imgs)
         print("Before augment")
         imgs, label = self.augmentor(imgs, item.label)
@@ -370,39 +373,44 @@ class VideoFolder():
         """
             
         print("called get item")
+        print(self.similarity)
         if self.similarity:
             # Need triplet for each sample
-            if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val:
-                item = random.choice(self.total_robot)
-            else:
-                item = random.choice(self.json_data) 
+#             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val:
+#                 item = random.choice(self.total_robot)
+#             else:
+            item = random.choice(self.json_data) 
             
             print("Item label: ", item.label)
+            """
+            FIX THIS
+            """
             # Get random anchor
             # If adding demos, get 1/2 robot anchors for a more balanced batch
-            if self.add_demos and (self.classes_dict[item.label] in self.robot_tasks) and (np.random.uniform(0.0, 1.0) < self.demo_batch_val): 
-                anchor = random.choice(self.robot_json_dict[item.label])
-            else:
-                anchor = random.choice(self.json_dict[item.label])
+#             if self.add_demos and (self.classes_dict[item.label] in self.robot_tasks) and (np.random.uniform(0.0, 1.0) < self.demo_batch_val): 
+#                 anchor = random.choice(self.robot_json_dict[item.label])
+#             else:
+            anchor = random.choice(self.json_dict[item.label])
             print("Right before negative")
             # Get negative 
             neg = random.choice(self.json_data)
-            if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
-                neg = random.choice(self.total_robot)
+#             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
+#                 neg = random.choice(self.total_robot)
             while neg.label == item.label:
                 neg = random.choice(self.json_data)
             print("Right before pos2")
-            pos2 = random.choice(self.json_data)
-#             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
-#                 neg = random.choice(self.total_robot)
-            while pos2.label != item.label:
-                neg = random.choice(self.json_data)
+#             pos2 = random.choice(self.json_data)
+# #             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
+# #                 neg = random.choice(self.total_robot)
+#             while neg.label != item.label:
+#                 neg = random.choice(self.json_data)
             print("Right before processing")    
             pos_data = self.process_video(item) 
-            pos2_data = self.process_video(pos2)
+#             pos2_data = self.process_video(pos2)
             anchor_data  = self.process_video(anchor)
             neg_data = self.process_video(neg)
-            return (pos_data, pos2_data, anchor_data, neg_data)
+            return (pos_data, anchor_data, neg_data)
+#             return (pos_data, pos2_data, anchor_data, neg_data)
             
 
     def __len__(self):

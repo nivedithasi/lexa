@@ -107,11 +107,11 @@ def main(logdir, config):
 #   args = load_args()
   upscale_size_train = int(1.4 * 64)
   upscale_size_eval = int(1.0 * 64)
-  transform_train_pre = ComposeMix([
-            [RandomRotationVideo(15), "vid"],
-            [Scale(upscale_size_train), "img"],
-            [RandomCropVideo(64), "img"],
-             ])
+#   transform_train_pre = ComposeMix([
+#             [RandomRotationVideo(15), "vid"],
+#             [Scale(upscale_size_train), "img"],
+#             [RandomCropVideo(64), "img"],
+#              ])
   transform_eval_pre = ComposeMix([
           [Scale(upscale_size_eval), "img"],
           [torchvision.transforms.ToPILImage(), "img"],
@@ -126,7 +126,7 @@ def main(logdir, config):
                              step_size=1,
                              num_tasks=2, #args.num_tasks,
                              is_val=False,
-                             transform_pre=transform_train_pre,
+                             transform_pre=transform_eval_pre,
                              transform_post=transform_post,
                              ) # add args back
     
