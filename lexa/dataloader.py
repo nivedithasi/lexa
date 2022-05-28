@@ -14,6 +14,7 @@ import torchvision
 from transforms_video import *
 import tensorflow as tf
 
+from tensorflow.keras.layers import Permute 
 from collections import namedtuple, defaultdict, Counter
 import json
 
@@ -318,7 +319,7 @@ class VideoFolder():
             print('{}: WEBM reader cannot open {}. Empty '
                   'list returned.'.format(type(exception).__name__, item.path))
         orig_imgs = np.array(imgs).copy() 
-        imgs = np.array(imgs)
+#         imgs = list(imgs)
         
         print("No issue decoding")
         target_idx = self.classes_dict[item.label] 
@@ -336,12 +337,18 @@ class VideoFolder():
 #             return imgs_copy
         
         print("Before trnasform pre")
-        print(imgs.shape, imgs.min(), imgs.max())
+        p = np.array(imgs)
+        print(p.shape)
         imgs = self.transform_pre(imgs)
+        print(type(imgs))
         print("Before augment")
+#         p = tf.convert_to_tensor(imgs)
+#         print(p.shape)
         imgs, label = self.augmentor(imgs, item.label)
         imgs = self.transform_post(imgs)
         print("after post augmentor")
+#         p = np.array(imgs)
+#         print(p.shape)
         
         num_frames = len(imgs)        
         if self.nclips > -1:
@@ -363,7 +370,8 @@ class VideoFolder():
 
         # format data to torch
         data = tf.stack(imgs)
-        data = data.permute(1, 0, 2, 3)
+        print(data.shape)
+        data = tf.transpose(data, perm=[1, 0, 2, 3])
         return data
     
             

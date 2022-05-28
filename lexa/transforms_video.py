@@ -4,6 +4,7 @@ import numpy as np
 import numbers
 import collections
 import random
+import pdb
 
 
 class ComposeMix(object):
@@ -27,7 +28,8 @@ class ComposeMix(object):
     def __init__(self, transforms):
         self.transforms = transforms
 
-    def __call__(self, imgs, online=True):
+    def __call__(self, imgs, online=False):
+#         pdb.set_trace() 
         for t in self.transforms:
             if t[1] == "img":
                 for idx, img in enumerate(imgs):
@@ -35,14 +37,13 @@ class ComposeMix(object):
                         for i, traj_im in enumerate(img):
                             imgs[idx, i] = t[0](traj_im)
                     else:
-                        print("IN call to tranforms: ", imgs[idx].shape, img.shape)
-                        print(t[0])
                         imgs[idx] = t[0](img)
             elif t[1] == "vid":
                 imgs = t[0](imgs)
             else:
                 print("Please specify the transform type")
                 raise ValueError
+        print(type(imgs))
         return imgs
 
 

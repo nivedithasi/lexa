@@ -141,6 +141,7 @@ def main(logdir, config):
   train_dataset = make_dataset(train_eps, config)
   eval_dataset = iter(make_dataset(eval_eps, config))
   dvd_iter = iter(make_dataset(dvd_data, config))
+  print("Next dvd iter: ", next(iter(dvd_data)))
 
   """
   TODO: 
