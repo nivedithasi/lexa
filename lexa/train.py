@@ -1,4 +1,5 @@
 import os
+import pdb
 import functools
 import tools
 import tensorflow as tf
@@ -8,10 +9,14 @@ import pathlib
 import off_policy
 from dataloader import VideoFolder
 from args import load_args
+from collections import defaultdict
 import torchvision
 from transforms_video import ComposeMix, RandomCropVideo, RandomRotationVideo, Scale
 from dreamer import Dreamer, setup_dreamer, create_envs, count_steps, make_dataset, parse_dreamer_args
 
+# if (!working) {
+#     working = true;
+# }
 
 class GCDreamer(Dreamer):
   def __init__(self, config, logger, dataset, dvd_dataset):
@@ -86,16 +91,33 @@ def make_dataset_dvd(dvd_data, config):
       print("This is 0 of dvd:", dvd_data[1])
       print("This is iter on dvd:", iter(dvd_data))
       iterator = iter(dvd_data)
-#       print("This is next iter on dvd:", next(iter(dvd_data)))
-      print("This is next: ", print(iterator.get_next()))
       example = dvd_data[next(iter(dvd_data))]
-      types = {k: v.dtype for k, v in example.items()}
+      types = {v.dtype for v in example}
       print("This is types:", types)
-      shapes = {k: (None,) + v.shape[1:] for k, v in example.items()}
+      # why is it 1: in the line below?
+      # pdb.set_trace()
+      shapes = defaultdict()
+      shapes['pos'] = example[0].shape
+      shapes['anchor'] = example[1].shape
+      shapes['neg'] = example[2].shape
+      #shapes = {(None,) + v.shape[1:] for v in example}
       print("This is shapes:", shapes)
       dataset = tf.data.Dataset.from_generator(dvd_data, types, shapes)
       dataset = dataset.batch(config.batch_size, drop_remainder=True)
       dataset = dataset.prefetch(10)
+    
+    
+#     example = episodes[next(iter(episodes.keys()))]
+#   types = {k: v.dtype for k, v in example.items()}
+#   print("This is types: ", types)
+#   shapes = {k: (None,) + v.shape[1:] for k, v in example.items()}
+#   print("This is shapes: ", shapes)
+#   generator = lambda: tools.sample_episodes(
+#       episodes, config.batch_length, config.oversample_ends)
+#   dataset = tf.data.Dataset.from_generator(generator, types, shapes)
+#   dataset = dataset.batch(config.batch_size, drop_remainder=True)
+#   dataset = dataset.prefetch(10)
+    
       return dataset
 
 def main(logdir, config):
@@ -121,7 +143,7 @@ def main(logdir, config):
   dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/',
                            json_file_input='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json',
                            json_file_labels='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json',
-                             clip_size= 0, #args.traj_length,
+                             clip_size= 20, #args.traj_length,
                              nclips=1,
                              step_size=1,
                              num_tasks=2, #args.num_tasks,
@@ -129,7 +151,8 @@ def main(logdir, config):
                              transform_pre=transform_eval_pre,
                              transform_post=transform_post,
                              ) # add args back
-    
+  #pdb.set_trace()  
+  train_dataset = make_dataset(train_eps, config)
   dvd_dataset = make_dataset_dvd(dvd_data, config)
   random_agent = lambda o, d, s: ([acts.sample() for _ in d], s)
   tools.simulate(random_agent, train_envs, prefill)

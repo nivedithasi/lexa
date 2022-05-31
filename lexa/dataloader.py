@@ -9,10 +9,11 @@ import json
 import numpy as np
 import torchvision
 from transforms_video import *
-
+from tensorflow import *
 import torchvision
 from transforms_video import *
 import tensorflow as tf
+import pdb
 
 from tensorflow.keras.layers import Permute 
 from collections import namedtuple, defaultdict, Counter
@@ -340,15 +341,14 @@ class VideoFolder():
         p = np.array(imgs)
         print(p.shape)
         imgs = self.transform_pre(imgs)
-        print(type(imgs))
+        # this is a list of PIL Images
         print("Before augment")
 #         p = tf.convert_to_tensor(imgs)
 #         print(p.shape)
         imgs, label = self.augmentor(imgs, item.label)
         imgs = self.transform_post(imgs)
         print("after post augmentor")
-#         p = np.array(imgs)
-#         print(p.shape)
+#         print(imgs)
         
         num_frames = len(imgs)        
         if self.nclips > -1:
@@ -362,16 +362,17 @@ class VideoFolder():
             # temporal augmentation
             offset = np.random.randint(0, diff)
 
+        print("after nclips")
         imgs = imgs[offset: num_frames_necessary + offset: self.step_size]
         if len(imgs) < (self.traj_length * self.nclips):
             imgs.extend([imgs[-1]] *
                         ((self.traj_length * self.nclips) - len(imgs)))
-        imgs = tf.convert_to_tensor(imgs)
 
         # format data to torch
         data = tf.stack(imgs)
-        print(data.shape)
-        data = tf.transpose(data, perm=[1, 0, 2, 3])
+        print("This is data: ", type(data), data.shape)
+#         data = tf.Tensor(data, data.shape, dtype=int32)
+        data = tf.transpose(tf.convert_to_tensor(data), perm=[1, 0, 2, 3])
         return data
     
             
@@ -418,8 +419,7 @@ class VideoFolder():
             anchor_data  = self.process_video(anchor)
             neg_data = self.process_video(neg)
             return (pos_data, anchor_data, neg_data)
-#             return (pos_data, pos2_data, anchor_data, neg_data)
-            
+#             return (pos_data, pos2_data, anchor_data, neg_data)            
 
     def __len__(self):
         self.total_files = len(self.json_data)
