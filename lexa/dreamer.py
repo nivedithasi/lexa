@@ -7,7 +7,7 @@ import resource
 import sys
 import warnings
 import pickle
-
+import pdb
 import numpy as np
 import ruamel.yaml as yaml
 import tensorflow as tf
@@ -222,6 +222,7 @@ def make_dataset(episodes, config):
   types = {k: v.dtype for k, v in example.items()}
   print("This is types: ", types)
   shapes = {k: (None,) + v.shape[1:] for k, v in example.items()}
+
   print("This is shapes: ", shapes)
   generator = lambda: tools.sample_episodes(
       episodes, config.batch_length, config.oversample_ends)

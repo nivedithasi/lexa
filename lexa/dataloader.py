@@ -372,7 +372,7 @@ class VideoFolder():
         data = tf.stack(imgs)
         print("This is data: ", type(data), data.shape)
 #         data = tf.Tensor(data, data.shape, dtype=int32)
-        data = tf.transpose(tf.convert_to_tensor(data), perm=[1, 0, 2, 3])
+        data = tf.transpose(tf.convert_to_tensor(data), perm=[0, 2, 3, 1])
         return data
     
             
@@ -418,7 +418,7 @@ class VideoFolder():
 #             pos2_data = self.process_video(pos2)
             anchor_data  = self.process_video(anchor)
             neg_data = self.process_video(neg)
-            return (pos_data, anchor_data, neg_data)
+            return {'pos': pos_data, 'anchor': anchor_data, 'neg': neg_data}
 #             return (pos_data, pos2_data, anchor_data, neg_data)            
 
     def __len__(self):

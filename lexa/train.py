@@ -85,24 +85,22 @@ def process_eps_data(eps_data):
   for key in keys:
     new_data[key] = np.array([eps_data[i][key] for i in range(len(eps_data))]).squeeze()
   return new_data
-   
+
+def sample_dvd(episodes, length=None, balance=False, seed=0):
+    pass
+
+    
 def make_dataset_dvd(dvd_data, config):
       print("DVD Data in make_dataset_dvd", dvd_data)
       print("This is 0 of dvd:", dvd_data[1])
       print("This is iter on dvd:", iter(dvd_data))
-      iterator = iter(dvd_data)
-      example = dvd_data[next(iter(dvd_data))]
-      types = {v.dtype for v in example}
+      example = next(iter(dvd_data))
+      types = {k: v.dtype for k, v in example.items()}
+      shapes = {k: (None,) + v.shape for k, v in example.items()}
       print("This is types:", types)
-      # why is it 1: in the line below?
-      # pdb.set_trace()
-      shapes = defaultdict()
-      shapes['pos'] = example[0].shape
-      shapes['anchor'] = example[1].shape
-      shapes['neg'] = example[2].shape
       #shapes = {(None,) + v.shape[1:] for v in example}
       print("This is shapes:", shapes)
-      dataset = tf.data.Dataset.from_generator(dvd_data, types, shapes)
+      dataset = tf.data.Dataset.from_generator(dvd_data.__getitem__, types, shapes)
       dataset = dataset.batch(config.batch_size, drop_remainder=True)
       dataset = dataset.prefetch(10)
     
@@ -163,7 +161,7 @@ def main(logdir, config):
   print('Simulate agent.')
   train_dataset = make_dataset(train_eps, config)
   eval_dataset = iter(make_dataset(eval_eps, config))
-  dvd_iter = iter(make_dataset(dvd_data, config))
+#   dvd_iter = iter(make_dataset(dvd_data, config))
   print("Next dvd iter: ", next(iter(dvd_data)))
 
   """
