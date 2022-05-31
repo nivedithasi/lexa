@@ -29,7 +29,6 @@ class ComposeMix(object):
         self.transforms = transforms
 
     def __call__(self, imgs, online=False):
-#         pdb.set_trace() 
         for t in self.transforms:
             if t[1] == "img":
                 for idx, img in enumerate(imgs):
