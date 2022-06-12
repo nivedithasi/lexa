@@ -1,6 +1,8 @@
 import tensorflow as tf
 from tensorflow.keras.mixed_precision import experimental as prec
 from tensorflow_probability import distributions as tfd
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dense
 
 import models
 import networks
@@ -25,7 +27,6 @@ class Random(tools.Module):
 
   def train(self, start, feat, embed, kl):
     return None, {}
-
 
 class Plan2Explore(tools.Module):
 
@@ -74,15 +75,47 @@ class Plan2Explore(tools.Module):
     metrics.update(self._behavior.train(start, self._intrinsic_reward)[-1])
     return None, metrics
 
-  def _intrinsic_reward(self, feat, state, action):
-    preds = [head(feat, tf.float32).mean() for head in self._networks]
-    disag = tf.reduce_mean(tf.math.reduce_std(preds, 0), -1)
-    if self._config.disag_log:
-      disag = tf.math.log(disag)
-    reward = self._config.expl_intr_scale * disag
-    if self._config.expl_extr_scale:
-      reward += tf.cast(self._config.expl_extr_scale * self._reward(
-          feat, state, action), tf.float32)
+  def mlp_dvd_model():
+    model = Sequential()
+    model.add(Dense(512, activation='relu', kernel_initializer='he_normal', input_shape=(50 * 1024,)))
+    model.add(Dense(256, activation='relu', kernel_initializer='he_normal'))
+    model.add(Dense(50, activation='relu', kernel_initializer='he_normal'))
+    model.add(Dense(1, activation='sigmoid'))
+    # compile the model
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+  def dvd_loss(sim_discriminator, pos_enc, anchor_enc, neg_enc):
+        pos_anchor = sim_discriminator.forward(pos_enc, anchor_enc)
+        neg_anchor = sim_discriminator.forward(anchor_enc, neg_enc)
+        pos_anchor_label = torch.ones(args.batch_size).long().cuda()
+        neg_anchor_label = torch.zeros(args.batch_size).long().cuda()
+        class_out = torch.cat((pos_anchor, neg_anchor))  
+        sim_labels = torch.cat((pos_anchor_label, neg_anchor_label))
+        class_loss = loss_class(class_out, sim_labels)
+                       
+        return loss
+        
+  def _intrinsic_reward(self, feat, state, action, ours = True):
+    if ours:
+        preds = [head(feat, tf.float32).mean() for head in self._networks]
+        disag = tf.reduce_mean(tf.math.reduce_std(preds, 0), -1)
+        if self._config.disag_log:
+          disag = tf.math.log(disag)
+        reward = self._config.expl_intr_scale * disag
+        if self._config.expl_extr_scale:
+          reward += tf.cast(self._config.expl_extr_scale * self._reward(
+              feat, state, action), tf.float32)
+        reward += dvd_loss(sim_)
+    else:
+        preds = [head(feat, tf.float32).mean() for head in self._networks]
+        disag = tf.reduce_mean(tf.math.reduce_std(preds, 0), -1)
+        if self._config.disag_log:
+          disag = tf.math.log(disag)
+        reward = self._config.expl_intr_scale * disag
+        if self._config.expl_extr_scale:
+          reward += tf.cast(self._config.expl_extr_scale * self._reward(
+              feat, state, action), tf.float32)
     return reward
 
   def _train_ensemble(self, inputs, targets):
@@ -92,6 +125,7 @@ class Plan2Explore(tools.Module):
       inputs = inputs[:, :-self._config.disag_offset]
     targets = tf.stop_gradient(targets)
     inputs = tf.stop_gradient(inputs)
+    """ Niveditha: Should we just add the value of human score here?"""
     with tf.GradientTape() as tape:
       preds = [head(inputs) for head in self._networks]
       likes = [tf.reduce_mean(pred.log_prob(targets)) for pred in preds]

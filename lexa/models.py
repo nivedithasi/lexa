@@ -15,6 +15,7 @@ class WorldModel(tools.Module):
     encoder_cls = dict(vanilla=networks.ConvEncoder,
                        with_state=networks.ConvEncoderWithState)[config.encoder_cls]
     self.encoder = encoder_cls(config.cnn_depth, config.act, config.encoder_kernels)
+    self.dvd_encoder = networks.dvd_encoder(self.encoder)
     self.embed_size = self.encoder.embed_size
     self.dynamics = networks.RSSM(
         config.dyn_stoch, config.dyn_deter, config.dyn_hidden,
@@ -46,7 +47,7 @@ class WorldModel(tools.Module):
         reward=config.reward_scale, discount=config.discount_scale)
 
   def train(self, data):
-    data = self.preprocess(data)
+    # data = self.preprocess(data)
     with tf.GradientTape() as model_tape:
       embed = self.encoder(data)
       data['embed'] = embed  # Needed for the embed head
@@ -88,7 +89,9 @@ class WorldModel(tools.Module):
       r_transform = lambda r: r / float(self._config.clip_rewards[1:])
     else:
       r_transform = getattr(tf, self._config.clip_rewards)
-    obs['reward'] = r_transform(obs['reward'])
+    
+    if 'reward' in obs:
+        obs['reward'] = r_transform(obs['reward'])
     if 'discount' in obs:
       obs['discount'] *= self._config.discount
     for key, value in obs.items():

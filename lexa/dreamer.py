@@ -107,7 +107,6 @@ class Dreamer(tools.Module):
       self._step.assign_add(len(reset))
       self._logger.step = self._config.action_repeat \
           * self._step.numpy().item()
-      import pdb; pdb.set_trace()
       return action, state
 
     else:
@@ -136,7 +135,12 @@ class Dreamer(tools.Module):
         reward = self._task_behavior._gc_reward(pad(actor_inp), latent, action, pad(obs['image_goal']))
 
     elif self._should_expl(self._step) or should_expl:
-      action = self._expl_behavior.act(feat, obs, latent).sample()
+        self._expl_behavior = dict(
+        greedy=lambda: self._task_behavior,
+        random=lambda: expl.Random(config),
+        plan2explore=lambda: expl.Plan2Explore(config, self._wm, reward),
+    )[config.expl_behavior]()
+        action = self._expl_behavior.act(feat, obs, latent).sample()
     elif self._config.offpolicy_opt:
       if self._config.offpolicy_use_embed:
         action = self._off_policy_handler.actor(tf.concat([self._wm.encoder(obs), self._wm.encoder({'image': obs['image_goal']})], axis = -1))
@@ -176,38 +180,74 @@ class Dreamer(tools.Module):
     return imag_feat, imag_action, goal
 
   @tf.function
-  def _train(self, data, dvd_data):
+  def _train(self, data, dvd_data, our=True):
     metrics = {}
-    embed, post, feat, kl, mets = self._wm.train(data) 
-    """
-    TODO: 
-    Will need to add something here to get the latent states for the human videos
-    """
-    metrics.update(mets)
-    start = post
-    assert not self._config.pred_discount
+    if our:
+        embed, post, feat, kl, mets, dvd_embed = self._wm.train(data, dvd_data)
+        print("Embed:", embed.shape)
+        print("DVD Embed:", dvd_embed)
+        exit()
+        metrics.update(mets)
+        metrics.update(mets_dvd)
+        start = post
+        assert not self._config.pred_discount
 
-    if self._config.imag_on_policy:
-      metrics.update(self._task_behavior.train(start, obs=data)[-1])
+        if self._config.imag_on_policy:
+          #defined on line 64, seems to just train a couple of models stored in the 
+          metrics.update(self._task_behavior.train(start, obs=data)[-1])
+          metrics.update(self._task_behavior.train(start, obs=dvd_data)[-1])
 
-    if self._config.gc_reward == 'dynamical_distance' and self._config.dd_train_off_policy:
-      metrics.update(self._task_behavior.train_dd_off_policy(self._wm.encoder(self._wm.preprocess(data))))
+        if self._config.gc_reward == 'dynamical_distance' and self._config.dd_train_off_policy:
+          metrics.update(self._task_behavior.train_dd_off_policy(self._wm.encoder(self._wm.preprocess(data))))
+          metrics.update(self._task_behavior.train_dd_off_policy(self._wm.encoder(self._wm.preprocess(dvd_data))))
 
-    if self._config.expl_behavior != 'greedy':
-      """
-      TODO: 
-      Will need to also need to pass the embedded human videos in here
-      """
-      mets = self._expl_behavior.train(start, feat, embed, kl)[-1]
-      metrics.update({'expl_' + key: value for key, value in mets.items()})
+        if self._config.expl_behavior != 'greedy':
+          """
+          TODO: 
+          Will need to also need to pass the embedded human videos in here
+          """
+          mets = self._expl_behavior.train(start, feat, embed, kl)[-1]
+          metrics.update({'expl_' + key: value for key, value in mets.items()})
+          mets_dvd = self._expl_behavior.train(start, feat_dvd, embed_dvd, kl)[-1]
+          metrics.update({'expl_' + key: value for key, value in mets_dvd.items()})
 
-    if self._config.gcbc:
-      _data = self._wm.preprocess(data)
-      obs = self._wm.encoder(self._wm.preprocess(data)) if self._config.offpolicy_use_embed else _data['image']
-      metrics.update(self._off_policy_handler.train_gcbc(obs, _data['action']))
+        if self._config.gcbc:
+          _data = self._wm.preprocess(data)
+          obs = self._wm.encoder(self._wm.preprocess(data)) if self._config.offpolicy_use_embed else _data['image']
+          metrics.update(self._off_policy_handler.train_gcbc(obs, _data['action']))
+          _data_dvd = self._wm.preprocess(dvd_data)
+          obs_dvd = self._wm.encoder(self._wm.preprocess(dvd_data)) if self._config.offpolicy_use_embed else _data_dvd['image']
+          metrics.update(self._off_policy_handler.train_gcbc(obs, _data_dvd['action']))
+        
+        for name, value in metrics.items():
+          self._metrics[name].update_state(value)
+        
+    else:
+        embed, post, feat, kl, mets = self._wm.train(data)
+        metrics.update(mets)
+        start = post
+        assert not self._config.pred_discount
 
-    for name, value in metrics.items():
-      self._metrics[name].update_state(value)
+        if self._config.imag_on_policy:
+          metrics.update(self._task_behavior.train(start, obs=data)[-1])
+        if self._config.gc_reward == 'dynamical_distance' and self._config.dd_train_off_policy:
+          metrics.update(self._task_behavior.train_dd_off_policy(self._wm.encoder(self._wm.preprocess(data))))
+        
+        if self._config.expl_behavior != 'greedy':
+          """
+          TODO: 
+          Will need to also need to pass the embedded human videos in here
+          """
+          mets = self._expl_behavior.train(start, feat, embed, kl)[-1]
+          metrics.update({'expl_' + key: value for key, value in mets.items()})
+
+        if self._config.gcbc:
+          _data = self._wm.preprocess(data)
+          obs = self._wm.encoder(self._wm.preprocess(data)) if self._config.offpolicy_use_embed else _data['image']
+          metrics.update(self._off_policy_handler.train_gcbc(obs, _data['action']))
+
+        for name, value in metrics.items():
+          self._metrics[name].update_state(value)
 
     return start, feat
 
@@ -217,13 +257,14 @@ def count_steps(folder):
 
 def make_dataset(episodes, config):
   # print("In MAKE DATASET")
-  print("Episodes: ", episodes)
+  print("Episodes: ", [k for k in episodes.keys()])
   example = episodes[next(iter(episodes.keys()))]
+  print("This is example len", len(example))
   types = {k: v.dtype for k, v in example.items()}
-  print("This is types: ", types)
+  #print("This is types: ", types)
   shapes = {k: (None,) + v.shape[1:] for k, v in example.items()}
 
-  print("This is shapes: ", shapes)
+  #print("This is shapes: ", shapes)
   generator = lambda: tools.sample_episodes(
       episodes, config.batch_length, config.oversample_ends)
   dataset = tf.data.Dataset.from_generator(generator, types, shapes)
@@ -231,6 +272,20 @@ def make_dataset(episodes, config):
   dataset = dataset.prefetch(10)
   return dataset
 
+def make_dvd_dataset(dvd_data, config):
+      print("DVD Data in make_dataset_dvd", dvd_data)
+      print("This is 0 of dvd:", dvd_data[1])
+      print("This is iter on dvd:", iter(dvd_data))
+      example = next(iter(dvd_data))
+      types = {k: v.dtype for k, v in example.items()}
+      shapes = {k: (None,) + v.shape for k, v in example.items()}
+      print("This is types:", types)
+      #shapes = {(None,) + v.shape[1:] for v in example}
+      print("This is shapes:", shapes)
+      dataset = tf.data.Dataset.from_generator(dvd_data.__getitem__, types, shapes)
+      dataset = dataset.batch(config.batch_size, drop_remainder=True)
+      dataset = dataset.prefetch(10)
+      return dataset
 
 def make_env(config, logger, mode, train_eps, eval_eps, use_goal_idx=False, log_per_goal=False):
   

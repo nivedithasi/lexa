@@ -12,7 +12,7 @@ from args import load_args
 from collections import defaultdict
 import torchvision
 from transforms_video import ComposeMix, RandomCropVideo, RandomRotationVideo, Scale
-from dreamer import Dreamer, setup_dreamer, create_envs, count_steps, make_dataset, parse_dreamer_args
+from dreamer import Dreamer, setup_dreamer, create_envs, count_steps, make_dataset, make_dvd_dataset, parse_dreamer_args
 
 # if (!working) {
 #     working = true;
@@ -89,35 +89,6 @@ def process_eps_data(eps_data):
 def sample_dvd(episodes, length=None, balance=False, seed=0):
     pass
 
-    
-def make_dataset_dvd(dvd_data, config):
-      print("DVD Data in make_dataset_dvd", dvd_data)
-      print("This is 0 of dvd:", dvd_data[1])
-      print("This is iter on dvd:", iter(dvd_data))
-      example = next(iter(dvd_data))
-      types = {k: v.dtype for k, v in example.items()}
-      shapes = {k: (None,) + v.shape for k, v in example.items()}
-      print("This is types:", types)
-      #shapes = {(None,) + v.shape[1:] for v in example}
-      print("This is shapes:", shapes)
-      dataset = tf.data.Dataset.from_generator(dvd_data.__getitem__, types, shapes)
-      dataset = dataset.batch(config.batch_size, drop_remainder=True)
-      dataset = dataset.prefetch(10)
-    
-    
-#     example = episodes[next(iter(episodes.keys()))]
-#   types = {k: v.dtype for k, v in example.items()}
-#   print("This is types: ", types)
-#   shapes = {k: (None,) + v.shape[1:] for k, v in example.items()}
-#   print("This is shapes: ", shapes)
-#   generator = lambda: tools.sample_episodes(
-#       episodes, config.batch_length, config.oversample_ends)
-#   dataset = tf.data.Dataset.from_generator(generator, types, shapes)
-#   dataset = dataset.batch(config.batch_size, drop_remainder=True)
-#   dataset = dataset.prefetch(10)
-    
-      return dataset
-
 def main(logdir, config):
   logdir, logger = setup_dreamer(config, logdir)
   eval_envs, eval_eps, train_envs, train_eps, acts = create_envs(config, logger)
@@ -141,17 +112,16 @@ def main(logdir, config):
   dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/',
                            json_file_input='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json',
                            json_file_labels='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json',
-                             clip_size= 20, #args.traj_length,
+                             clip_size= config.batch_length, #args.traj_length,
                              nclips=1,
                              step_size=1,
                              num_tasks=2, #args.num_tasks,
                              is_val=False,
                              transform_pre=transform_eval_pre,
                              transform_post=transform_post,
-                             ) # add args back
-  #pdb.set_trace()  
-  train_dataset = make_dataset(train_eps, config)
-  dvd_dataset = make_dataset_dvd(dvd_data, config)
+                             ) # Niveditha: add args back
+    
+  dvd_dataset = make_dvd_dataset(dvd_data, config)
   random_agent = lambda o, d, s: ([acts.sample() for _ in d], s)
   tools.simulate(random_agent, train_envs, prefill)
   if count_steps(config.evaldir) == 0:
@@ -161,9 +131,7 @@ def main(logdir, config):
   print('Simulate agent.')
   train_dataset = make_dataset(train_eps, config)
   eval_dataset = iter(make_dataset(eval_eps, config))
-#   dvd_iter = iter(make_dataset(dvd_data, config))
-  print("Next dvd iter: ", next(iter(dvd_data)))
-
+  # print("Next dvd iter: ", next(iter(dvd_data)))
   """
   TODO: 
   Create a new dataset here which returns clips from the something-something dataset

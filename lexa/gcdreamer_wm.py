@@ -30,10 +30,12 @@ class GCWorldModel(models.WorldModel):
       if self._config.double_rev_pred:
         self.embed_rev_pred = networks.get_mlp_model('embed_rp', [256, 128], self._config.skill_dim)
 
-  def train(self, data):
+  def train(self, data, dvd_data):
     data = self.preprocess(data)
     with tf.GradientTape() as model_tape:
       embed = self.encoder(data)
+      dvd_embed = self.dvd_encoder(dvd_data)        
+      #dvd_embed = dvd_data
       data['embed'] = tf.stop_gradient(embed)  # Needed for the embed head
       post, prior = self.dynamics.observe(embed, data['action'])
       data['stoch_state'] = tf.stop_gradient(post['stoch'])  # Needed for the embed head
@@ -81,7 +83,7 @@ class GCWorldModel(models.WorldModel):
     metrics['kl'] = tf.reduce_mean(kl_value)
     metrics['prior_ent'] = self.dynamics.get_dist(prior).entropy()
     metrics['post_ent'] = self.dynamics.get_dist(post).entropy()
-    return embed, post, feat, kl_value, metrics
+    return embed, post, feat, kl_value, metrics, dvd_embed
 
   def get_goal(self, obs, training=False):
     if self._config.gc_input == 'state':

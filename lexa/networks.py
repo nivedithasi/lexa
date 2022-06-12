@@ -284,6 +284,19 @@ class GC_Actor(tools.Module):
     x = self.get(f'hout', tfkl.Dense, self._size)(x)
     return tfkl.Activation('tanh')(x)
 
+class dvd_encoder(tools.Module):
+    def __init__(self, model):
+        self._model = model
+    
+    def __call__(self, obs):
+        print ("DVD_Encoder Input:", obs)
+        encoding = []
+        for option in obs:
+            print("DVD_Encoder image:", obs[option])
+            img = {'image':obs[option]}
+            encoding.append(self._model(img))
+        return encoding
+
 class ConvEncoder(tools.Module):
 
   def __init__(
@@ -294,9 +307,12 @@ class ConvEncoder(tools.Module):
     self.embed_size = depth * 32
 
   def __call__(self, obs):
+    print ("ConvEncoder Input:", obs)
+    #print ("ConvEncoder image:", obs['image'])
     kwargs = dict(strides=2, activation=self._act)
     Conv = tfkl.Conv2D
     x = tf.reshape(obs['image'], (-1,) + tuple(obs['image'].shape[-3:]))
+    print("This is x:", x)
     x = self.get('h1', Conv, 1 * self._depth, self._kernels[0], **kwargs)(x)
     x = self.get('h2', Conv, 2 * self._depth, self._kernels[1], **kwargs)(x)
     x = self.get('h3', Conv, 4 * self._depth, self._kernels[2], **kwargs)(x)
