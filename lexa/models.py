@@ -15,7 +15,6 @@ class WorldModel(tools.Module):
     encoder_cls = dict(vanilla=networks.ConvEncoder,
                        with_state=networks.ConvEncoderWithState)[config.encoder_cls]
     self.encoder = encoder_cls(config.cnn_depth, config.act, config.encoder_kernels)
-    self.dvd_encoder = networks.dvd_encoder(self.encoder)
     self.embed_size = self.encoder.embed_size
     self.dynamics = networks.RSSM(
         config.dyn_stoch, config.dyn_deter, config.dyn_hidden,

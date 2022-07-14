@@ -312,7 +312,7 @@ class VideoFolder():
             print("Issue with opening the video, path:", item.path)
             assert(False)
 
-        print("No issue opening")
+        # print("No issue opening")
         try:
             imgs = []
             imgs = [f.to_rgb().to_ndarray() for f in reader.decode(video=0)]
@@ -322,7 +322,7 @@ class VideoFolder():
         orig_imgs = np.array(imgs).copy() 
 #         imgs = list(imgs)
         
-        print("No issue decoding")
+        # print("No issue decoding")
         target_idx = self.classes_dict[item.label] 
         if not self.num_tasks == 174:
             target_idx = self.tasks.index(target_idx)
@@ -337,17 +337,17 @@ class VideoFolder():
 #             imgs_copy = imgs_copy.permute(1, 0, 2, 3)
 #             return imgs_copy
         
-        print("Before trnasform pre")
+        # print("Before trnasform pre")
         p = np.array(imgs)
-        print(p.shape)
+        # print(p.shape)
         imgs = self.transform_pre(imgs)
         # this is a list of PIL Images
-        print("Before augment")
+        # print("Before augment")
 #         p = tf.convert_to_tensor(imgs)
 #         print(p.shape)
         imgs, label = self.augmentor(imgs, item.label)
         imgs = self.transform_post(imgs)
-        print("after post augmentor")
+        # print("after post augmentor")
 #         print(imgs)
         
         num_frames = len(imgs)        
@@ -362,7 +362,7 @@ class VideoFolder():
             # temporal augmentation
             offset = np.random.randint(0, diff)
 
-        print("after nclips")
+        # print("after nclips")
         imgs = imgs[offset: num_frames_necessary + offset: self.step_size]
         if len(imgs) < (self.traj_length * self.nclips):
             imgs.extend([imgs[-1]] *
@@ -370,19 +370,19 @@ class VideoFolder():
 
         # format data to torch
         data = tf.stack(imgs)
-        print("This is data: ", type(data), data.shape)
+        # print("This is data: ", type(data), data.shape)
 #         data = tf.Tensor(data, data.shape, dtype=int32)
         data = tf.transpose(tf.convert_to_tensor(data), perm=[0, 2, 3, 1])
         return data
     
             
-    def __getitem__(self, index):
+    def __getitem__(self, index=0):
         """
         [!] FPS jittering doesn't work with AV dataloader as of now
         """
             
-        print("called get item")
-        print(self.similarity)
+        # print("called get item")
+        # print(self.similarity)
         if self.similarity:
             # Need triplet for each sample
 #             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val:
@@ -390,7 +390,7 @@ class VideoFolder():
 #             else:
             item = random.choice(self.json_data) 
             
-            print("Item label: ", item.label)
+            # print("Item label: ", item.label)
             """
             FIX THIS
             """
@@ -400,20 +400,20 @@ class VideoFolder():
 #                 anchor = random.choice(self.robot_json_dict[item.label])
 #             else:
             anchor = random.choice(self.json_dict[item.label])
-            print("Right before negative")
+            # print("Right before negative")
             # Get negative 
             neg = random.choice(self.json_data)
 #             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
 #                 neg = random.choice(self.total_robot)
             while neg.label == item.label:
                 neg = random.choice(self.json_data)
-            print("Right before pos2")
+            # print("Right before pos2")
 #             pos2 = random.choice(self.json_data)
 # #             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
 # #                 neg = random.choice(self.total_robot)
 #             while neg.label != item.label:
 #                 neg = random.choice(self.json_data)
-            print("Right before processing")    
+            # print("Right before processing")    
             pos_data = self.process_video(item) 
 #             pos2_data = self.process_video(pos2)
             anchor_data  = self.process_video(anchor)
@@ -429,5 +429,6 @@ class VideoFolder():
     
     def __call__(self):
         for i in range(self.__len__()):
-            yield self.__getitem__(i)
+            item = self.__getitem__(i)
+            yield item
             

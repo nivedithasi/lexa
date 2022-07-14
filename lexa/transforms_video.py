@@ -42,7 +42,6 @@ class ComposeMix(object):
             else:
                 print("Please specify the transform type")
                 raise ValueError
-        print(type(imgs))
         return imgs
 
 

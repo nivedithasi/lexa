@@ -140,7 +140,7 @@ def main(logdir, config):
   Also will probably make sense for it to return two clips of the same task per batch, 
   for training the DVD model
   """
-  agent = GCDreamer(config, logger, train_dataset, dvd_data)
+  agent = GCDreamer(config, logger, train_dataset, dvd_dataset)
   if (logdir / 'variables.pkl').exists():
     agent.load(logdir / 'variables.pkl')
     agent._should_pretrain._once = False

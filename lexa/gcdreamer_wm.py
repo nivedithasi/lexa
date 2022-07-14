@@ -30,12 +30,10 @@ class GCWorldModel(models.WorldModel):
       if self._config.double_rev_pred:
         self.embed_rev_pred = networks.get_mlp_model('embed_rp', [256, 128], self._config.skill_dim)
 
-  def train(self, data, dvd_data):
+  def train(self, data):
     data = self.preprocess(data)
     with tf.GradientTape() as model_tape:
       embed = self.encoder(data)
-      dvd_embed = self.dvd_encoder(dvd_data)        
-      #dvd_embed = dvd_data
       data['embed'] = tf.stop_gradient(embed)  # Needed for the embed head
       post, prior = self.dynamics.observe(embed, data['action'])
       data['stoch_state'] = tf.stop_gradient(post['stoch'])  # Needed for the embed head
@@ -83,7 +81,7 @@ class GCWorldModel(models.WorldModel):
     metrics['kl'] = tf.reduce_mean(kl_value)
     metrics['prior_ent'] = self.dynamics.get_dist(prior).entropy()
     metrics['post_ent'] = self.dynamics.get_dist(post).entropy()
-    return embed, post, feat, kl_value, metrics, dvd_embed
+    return embed, post, feat, kl_value, metrics
 
   def get_goal(self, obs, training=False):
     if self._config.gc_input == 'state':
@@ -145,9 +143,12 @@ class GCWorldModel(models.WorldModel):
       latent = self.dynamics.initial(len(obs['image']))
       dtype = prec.global_policy().compute_dtype
       action = tf.zeros((batch_size, self._config.num_actions), dtype)
-      goal = obs['image_goal']
-      goal_state = obs['goal']
-      skill = obs['skill']
+      try:
+        goal = obs['image_goal'] #SN: SEEMS LIKE THIS ISNT USED
+        goal_state = obs['goal'] #SN: SEEMS LIKE THIS ISNT USED
+        skill = obs['skill'] #SN: SEEMS LIKE THIS ISNT USED
+      except:
+        pass
     else:
       latent, action = state
       goal = latent['image_goal']
@@ -156,8 +157,11 @@ class GCWorldModel(models.WorldModel):
     embed = self.encoder(obs)
     latent, _ = self.dynamics.obs_step(latent, action, embed, sample)
     # TODO encapsulate the goal into obs_step
-    latent['image_goal'] = goal
-    latent['goal'] = goal_state
-    latent['skill'] = skill
+    try:
+      latent['image_goal'] = goal #SN: SEEMS LIKE THIS ISNT USED
+      latent['goal'] = goal_state #SN: SEEMS LIKE THIS ISNT USED
+      latent['skill'] = skill #SN: SEEMS LIKE THIS ISNT USED
+    except:
+      pass
     feat = self.dynamics.get_feat(latent)
     return feat, latent
