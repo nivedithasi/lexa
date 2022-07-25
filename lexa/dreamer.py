@@ -192,16 +192,20 @@ class Dreamer(tools.Module):
     t1 = time.time()
     if self._config.dvd_score_weight > 0.0:
         dvd_obs = {}
+        dvd_data_dict = {}
+        dvd_data_dict["pos"] = dvd_data[:, :, :, :, :3]
+        dvd_data_dict["anchor"] = dvd_data[:, :, :, :, 3:6]
+        dvd_data_dict["neg"] = dvd_data[:, :, :, :, 6:]
               
-        dvd_obs["image"] = tf.reshape(dvd_data["pos"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
+        dvd_obs["image"] = tf.reshape(dvd_data_dict["pos"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
         _, dvd_pos_latent = self._wm.get_init_feat(dvd_obs)
 
         dvd_obs = {}
-        dvd_obs["image"] = tf.reshape(dvd_data["neg"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
+        dvd_obs["image"] = tf.reshape(dvd_data_dict["neg"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
         _, dvd_neg_latent = self._wm.get_init_feat(dvd_obs)
 
         dvd_obs = {}
-        dvd_obs["image"] = tf.reshape(dvd_data["anchor"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
+        dvd_obs["image"] = tf.reshape(dvd_data_dict["anchor"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
         _, dvd_anchor_latent = self._wm.get_init_feat(dvd_obs)
     else:
         dvd_pos_latent, dvd_neg_latent, dvd_anchor_latent = None, None, None
@@ -266,15 +270,23 @@ def make_dataset(episodes, config):
 
 def make_dvd_dataset(dvd_data, config):
   example = next(iter(dvd_data))
-  types = {k: v.dtype for k, v in example.items()}
-  shapes = {k: v.shape for k, v in example.items()}
+  types = example.dtype #{k: v.dtype for k, v in example.items()}
+  shapes = () #{k: () for k, v in example.items()}
+  shapes2 = example.shape #{k: v.shape for k, v in example.items()}
   print("This is DVD types:", types)
   #shapes = {(None,) + v.shape[1:] for v in example}
   print("This is DVD shapes:", shapes)
   generator = lambda: dvd_data.__call__()
   dataset = tf.data.Dataset.from_generator(generator, types, shapes)
+
+  def wrapped_complex_calulation(placeholder):
+    return tf.py_function(func = dvd_data.__getitem__,
+                      inp = [],
+                      Tout = tf.float32)  # label
+  
+  dataset = dataset.map(wrapped_complex_calulation, num_parallel_calls=tf.data.AUTOTUNE)
   dataset = dataset.batch(config.batch_size, drop_remainder=True)
-  # dataset = dataset.map(dvd_data.__getitem__, num_parallel_calls=10)
+  
   dataset = dataset.prefetch(10)
   return dataset
 

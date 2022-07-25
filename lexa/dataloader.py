@@ -377,53 +377,30 @@ class VideoFolder():
         return data
     
             
-    def __getitem__(self, index=0):
+    def __getitem__(self, indices = None):
         """
         [!] FPS jittering doesn't work with AV dataloader as of now
         """
             
-        # print("called get item")
-        # print(self.similarity)
-        if self.similarity:
-            # Need triplet for each sample
-#             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val:
-#                 item = random.choice(self.total_robot)
-#             else:
-            t0 = time.time()
-            item = random.choice(self.json_data) 
-            
-            # print("Item label: ", item.label)
-            """
-            FIX THIS
-            """
-            # Get random anchor
-            # If adding demos, get 1/2 robot anchors for a more balanced batch
-#             if self.add_demos and (self.classes_dict[item.label] in self.robot_tasks) and (np.random.uniform(0.0, 1.0) < self.demo_batch_val): 
-#                 anchor = random.choice(self.robot_json_dict[item.label])
-#             else:
-            anchor = random.choice(self.json_dict[item.label])
-            # print("Right before negative")
-            # Get negative 
-            neg = random.choice(self.json_data)
-#             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
-#                 neg = random.choice(self.total_robot)
-            while neg.label == item.label:
-                neg = random.choice(self.json_data)
-            # print("Right before pos2")
-#             pos2 = random.choice(self.json_data)
-# #             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val: 
-# #                 neg = random.choice(self.total_robot)
-#             while neg.label != item.label:
-#                 neg = random.choice(self.json_data)
-            # print("Right before processing")    
-            pos_data = self.process_video(item) 
-#             pos2_data = self.process_video(pos2)
-            anchor_data  = self.process_video(anchor)
-            neg_data = self.process_video(neg)
-            t1 = time.time()
-            print("getdatatime", t1-t0)
-            return {'pos': pos_data, 'anchor': anchor_data, 'neg': neg_data}
-#             return (pos_data, pos2_data, anchor_data, neg_data)            
+        def getindices():
+          item = random.choice(self.json_data) 
+          anchor = random.choice(self.json_dict[item.label])
+          neg = random.choice(self.json_data)
+          while neg.label == item.label:
+              neg = random.choice(self.json_data)
+          return item, anchor, neg
+              
+              
+        t0 = time.time()
+        item, anchor, neg = getindices()
+
+        pos_data = self.process_video(item) 
+        anchor_data  = self.process_video(anchor)
+        neg_data = self.process_video(neg)
+        t1 = time.time()
+        # print("getdatatime", t1-t0)
+        # print(item, anchor, neg)
+        return tf.concat([pos_data, anchor_data, neg_data], -1) #){'pos': pos_data, 'anchor': anchor_data, 'neg': neg_data}
 
     def __len__(self):
         self.total_files = len(self.json_data)
@@ -433,7 +410,13 @@ class VideoFolder():
     
     def __call__(self):
         while True:
-            yield self.__getitem__()
+            # yield self.__getitem__()
+            # item = random.choice(self.json_data) 
+            # anchor = random.choice(self.json_dict[item.label])
+            # neg = random.choice(self.json_data)
+            # while neg.label == item.label:
+            #     neg = random.choice(self.json_data)
+            yield 0.0
         # for i in range(self.__len__()):
         #     item = self.__getitem__(i)
         #     yield item
