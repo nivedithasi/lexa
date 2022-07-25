@@ -13,6 +13,7 @@ import ruamel.yaml as yaml
 import tensorflow as tf
 from tensorflow.keras.mixed_precision import experimental as prec
 from tensorflow_probability import distributions as tfd
+import time
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 tf.get_logger().setLevel('ERROR')
@@ -52,11 +53,8 @@ class Dreamer(tools.Module):
     config.imag_gradient_mix = (
         lambda x=config.imag_gradient_mix: tools.schedule(x, self._step))
     self._dataset = iter(dataset)
-    self._dvd_data = iter(dvd_data)
-    """
-    TODO: 
-    Will need to do the same new dataset here as above for the Something-Something dataset.
-    """
+   
+
     if 'gcdreamer' in config.task_behavior:
       self._wm = gcdreamer_wm.GCWorldModel(self._step, config)
     else:
@@ -73,11 +71,17 @@ class Dreamer(tools.Module):
     )[config.expl_behavior]()
     # Train step to initialize variables including optimizer statistics.
     _data = next(self._dataset)
-    _dvd_data = next(self._dvd_data)
+    if self._config.dvd_score_weight > 0.0:
+        self._dvd_data = iter(dvd_data)
+        _dvd_data = next(self._dvd_data)
+    else:
+        _dvd_data = None
     self._train(_data, _dvd_data)
 
   def __call__(self, obs, reset, state=None, training=True):
     step = self._step.numpy().item()
+    print("_"*10)
+    print(step)
     if self._should_reset(step):
       state = None
     if state is not None and reset.any():
@@ -88,13 +92,16 @@ class Dreamer(tools.Module):
           self._config.pretrain if self._should_pretrain()
           else self._config.train_steps)
       for _ in range(steps):
+        t0 = time.time()
         _data = next(self._dataset)
-        _dvd_data = next(self._dvd_data)
-        """
-        TODO: 
-        Same here will need to add sampling for the human video dataset and pass it to _train
-        """
+        if self._config.dvd_score_weight > 0.0:
+            _dvd_data = next(self._dvd_data)
+        else:
+            _dvd_data = None
+        t00 = time.time()
         start, feat = self._train(_data, _dvd_data)
+        t1 = time.time()
+        print(f"SAMPLE TIME {t00-t0} TRAIN TIME {t1 - t00}")
 
       if self._should_log(step):
         for name, mean in self._metrics.items():
@@ -137,11 +144,6 @@ class Dreamer(tools.Module):
         reward = self._task_behavior._gc_reward(pad(actor_inp), latent, action, pad(obs['image_goal']))
 
     elif self._should_expl(self._step) or should_expl:
-        self._expl_behavior = dict(
-        greedy=lambda: self._task_behavior,
-        random=lambda: expl.Random(config),
-        plan2explore=lambda: expl.Plan2Explore(config, self._wm, reward),
-    )[config.expl_behavior]()
         action = self._expl_behavior.act(feat, obs, latent).sample()
     elif self._config.offpolicy_opt:
       if self._config.offpolicy_use_embed:
@@ -182,95 +184,62 @@ class Dreamer(tools.Module):
     return imag_feat, imag_action, goal
 
   @tf.function
-  def _train(self, data, dvd_data, our=True):
+  def _train(self, data, dvd_data=None, our=True):
     metrics = {}
-    if our:
-        embed, post, feat, kl, mets = self._wm.train(data)
-        print("Embed:", embed)
-        print("FEAT", feat)
-        print("POST", post)
+    t0 = time.time()
+    embed, post, feat, kl, mets = self._wm.train(data)
+
+    t1 = time.time()
+    if self._config.dvd_score_weight > 0.0:
         dvd_obs = {}
-        dvd_obs["image"] = tf.reshape(dvd_data["pos"], [45*50, 64, 64, 3])
-        dvd_pos_feat, dvd_pos_latent = self._wm.get_init_feat(dvd_obs)
-#         dvd_pos_feat = tf.reshape(dvd_pos_feat, [45, 50, 250])
-#         dvd_pos_latent = tf.reshape(dvd_pos_latent,[45, 50, 50])
-        
+              
+        dvd_obs["image"] = tf.reshape(dvd_data["pos"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
+        _, dvd_pos_latent = self._wm.get_init_feat(dvd_obs)
+
         dvd_obs = {}
-        dvd_obs["image"] = tf.reshape(dvd_data["neg"], [45*50, 64, 64, 3])
-        dvd_neg_feat, dvd_neg_latent = self._wm.get_init_feat(dvd_obs)
-        # dvd_neg_feat = tf.reshape(dvd_neg_feat, [45, 50, 250])
-        # dvd_neg_latent = tf.reshape(dvd_neg_latent,[45, 50, 50])
-        
+        dvd_obs["image"] = tf.reshape(dvd_data["neg"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
+        _, dvd_neg_latent = self._wm.get_init_feat(dvd_obs)
+
         dvd_obs = {}
-        dvd_obs["image"] = tf.reshape(dvd_data["anchor"], [45*50, 64, 64, 3])
-        dvd_anchor_feat, dvd_anchor_latent = self._wm.get_init_feat(dvd_obs)
-        # dvd_anchor_feat = tf.reshape(dvd_anchor_feat, [45, 50, 250])
-        # dvd_anchor_latent = tf.reshape(dvd_anchor_latent,[45, 50, 50])
-        # dvdembed, dvdpost, dvdfeat, dvdkl, dvdmets  = self._wm.train(dvd_obs)
-        # print("DVD Latent:", dvd_pos_latent)
-        # print("DVD FEAT", dvd_pos_feat)
-        # exit()
-        # assert(False)
-        metrics.update(mets)
-        # metrics.update(mets_dvd)
-        start = post
-        assert not self._config.pred_discount
-
-        if self._config.imag_on_policy:
-          #defined on line 64, seems to just train a couple of models stored in the 
-          metrics.update(self._task_behavior.train(start, obs=data)[-1])
-          # metrics.update(self._task_behavior.train(start, obs=dvd_data)[-1])
-
-        if self._config.gc_reward == 'dynamical_distance' and self._config.dd_train_off_policy:
-          metrics.update(self._task_behavior.train_dd_off_policy(self._wm.encoder(self._wm.preprocess(data))))
-
-        if self._config.expl_behavior != 'greedy':
-          """
-          TODO: 
-          Will need to also need to pass the embedded human videos in here
-          """
-          mets = self._expl_behavior.train(start, feat, embed, kl, 
-                                           dvd_pos_feat, dvd_pos_latent, 
-                                           dvd_neg_feat, dvd_neg_latent,
-                                           dvd_anchor_feat, dvd_anchor_latent)[-1]
-          metrics.update({'expl_' + key: value for key, value in mets.items()})
-          # mets_dvd = self._expl_behavior.train(start, feat_dvd, embed_dvd, kl)[-1]
-          # metrics.update({'expl_' + key: value for key, value in mets_dvd.items()})
-
-        if self._config.gcbc:
-          _data = self._wm.preprocess(data)
-          obs = self._wm.encoder(self._wm.preprocess(data)) if self._config.offpolicy_use_embed else _data['image']
-          metrics.update(self._off_policy_handler.train_gcbc(obs, _data['action']))
-        
-        for name, value in metrics.items():
-          self._metrics[name].update_state(value)
-        
+        dvd_obs["image"] = tf.reshape(dvd_data["anchor"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
+        _, dvd_anchor_latent = self._wm.get_init_feat(dvd_obs)
     else:
-        embed, post, feat, kl, mets = self._wm.train(data)
-        metrics.update(mets)
-        start = post
-        assert not self._config.pred_discount
+        dvd_pos_latent, dvd_neg_latent, dvd_anchor_latent = None, None, None
+    t2 = time.time()
 
-        if self._config.imag_on_policy:
-          metrics.update(self._task_behavior.train(start, obs=data)[-1])
-        if self._config.gc_reward == 'dynamical_distance' and self._config.dd_train_off_policy:
-          metrics.update(self._task_behavior.train_dd_off_policy(self._wm.encoder(self._wm.preprocess(data))))
-        
-        if self._config.expl_behavior != 'greedy':
-          """
-          TODO: 
-          Will need to also need to pass the embedded human videos in here
-          """
-          mets = self._expl_behavior.train(start, feat, embed, kl)[-1]
-          metrics.update({'expl_' + key: value for key, value in mets.items()})
+    metrics.update(mets)
+    start = post
+    assert not self._config.pred_discount
 
-        if self._config.gcbc:
-          _data = self._wm.preprocess(data)
-          obs = self._wm.encoder(self._wm.preprocess(data)) if self._config.offpolicy_use_embed else _data['image']
-          metrics.update(self._off_policy_handler.train_gcbc(obs, _data['action']))
+    if self._config.imag_on_policy:
+      #defined on line 64, seems to just train a couple of models stored in the 
+      metrics.update(self._task_behavior.train(start, obs=data)[-1])
+      # metrics.update(self._task_behavior.train(start, obs=dvd_data)[-1])
 
-        for name, value in metrics.items():
-          self._metrics[name].update_state(value)
+    if self._config.gc_reward == 'dynamical_distance' and self._config.dd_train_off_policy:
+      metrics.update(self._task_behavior.train_dd_off_policy(self._wm.encoder(self._wm.preprocess(data))))
+    t3 = time.time()
+    if self._config.expl_behavior != 'greedy':
+      """
+      TODO: 
+      Will need to also need to pass the embedded human videos in here
+      """
+      mets = self._expl_behavior.train(start, feat, embed, kl, 
+                                       dvd_pos_latent, 
+                                       dvd_neg_latent,
+                                       dvd_anchor_latent)[-1]
+      metrics.update({'expl_' + key: value for key, value in mets.items()})
+      
+    t4 = time.time()
+    if self._config.gcbc:
+      _data = self._wm.preprocess(data)
+      obs = self._wm.encoder(self._wm.preprocess(data)) if self._config.offpolicy_use_embed else _data['image']
+      metrics.update(self._off_policy_handler.train_gcbc(obs, _data['action']))
+
+    for name, value in metrics.items():
+      self._metrics[name].update_state(value)
+      
+    print(f"Normal train {t1-t0}, DVD Encodings {t2-t1}, Exploration Train {t4-t3}")
 
     return start, feat
 
@@ -305,6 +274,7 @@ def make_dvd_dataset(dvd_data, config):
   generator = lambda: dvd_data.__call__()
   dataset = tf.data.Dataset.from_generator(generator, types, shapes)
   dataset = dataset.batch(config.batch_size, drop_remainder=True)
+  # dataset = dataset.map(dvd_data.__getitem__, num_parallel_calls=10)
   dataset = dataset.prefetch(10)
   return dataset
 

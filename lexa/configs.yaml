@@ -13,6 +13,10 @@ defaults:
   precision: 16
   debug: False
   expl_gifs: False
+  
+  # New
+  dvd_trajlen: 15
+  dvd_score_weight: 1.0
 
   # Environment
   task: 'dmc_walker_walk'

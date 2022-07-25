@@ -14,6 +14,7 @@ import torchvision
 from transforms_video import *
 import tensorflow as tf
 import pdb
+import time
 
 from tensorflow.keras.layers import Permute 
 from collections import namedtuple, defaultdict, Counter
@@ -388,6 +389,7 @@ class VideoFolder():
 #             if self.add_demos and np.random.uniform(0.0, 1.0) < self.demo_batch_val:
 #                 item = random.choice(self.total_robot)
 #             else:
+            t0 = time.time()
             item = random.choice(self.json_data) 
             
             # print("Item label: ", item.label)
@@ -418,6 +420,8 @@ class VideoFolder():
 #             pos2_data = self.process_video(pos2)
             anchor_data  = self.process_video(anchor)
             neg_data = self.process_video(neg)
+            t1 = time.time()
+            print("getdatatime", t1-t0)
             return {'pos': pos_data, 'anchor': anchor_data, 'neg': neg_data}
 #             return (pos_data, pos2_data, anchor_data, neg_data)            
 
@@ -428,7 +432,9 @@ class VideoFolder():
         return self.total_files
     
     def __call__(self):
-        for i in range(self.__len__()):
-            item = self.__getitem__(i)
-            yield item
+        while True:
+            yield self.__getitem__()
+        # for i in range(self.__len__()):
+        #     item = self.__getitem__(i)
+        #     yield item
             

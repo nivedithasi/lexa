@@ -8,7 +8,7 @@ from tensorflow.keras.layers import Dense, Conv1D, Flatten
 import models
 import networks
 import tools
-
+import time
 
 class Random(tools.Module):
 
@@ -64,9 +64,9 @@ class Plan2Explore(tools.Module):
         'dvd', config.model_lr, config.opt_eps, config.grad_clip,
         config.weight_decay, opt=config.opt)
 
-  def train(self, start, feat, embed, kl, dvd_pos_feat, dvd_pos_latent, 
-                                           dvd_neg_feat, dvd_neg_latent,
-                                           dvd_anchor_feat, dvd_anchor_latent):
+  def train(self, start, feat, embed, kl, dvd_pos_latent=None, 
+                                           dvd_neg_latent=None,
+                                           dvd_anchor_latent=None):
     metrics = {}
     target = {
         'embed': embed,
@@ -81,20 +81,20 @@ class Plan2Explore(tools.Module):
     Second, will need to modify (or make a new version) of the _intrinsic_reward function which is not just the 
     model disagreement, but also the learned models similarity score between robot behavior and some target video(s)
     """
-    
     metrics.update(self._train_ensemble(feat, target))
-    metrics.update(self._train_dvd(dvd_pos_latent[self._config.disag_target], 
-                                   dvd_neg_latent[self._config.disag_target],
-                                   dvd_anchor_latent[self._config.disag_target]))
+    if dvd_pos_latent is not None:
+        metrics.update(self._train_dvd(dvd_pos_latent[self._config.disag_target], 
+                                       dvd_neg_latent[self._config.disag_target],
+                                       dvd_anchor_latent[self._config.disag_target]))
     metrics.update(self._behavior.train(start, self._intrinsic_reward)[-1])
     return None, metrics
 
   def mlp_dvd_model(self):
     model = Sequential()
-    model.add(Conv1D(32, 10, activation='relu', kernel_initializer='he_normal', input_shape=(50, 100)))
-    model.add(Conv1D(32, 5, activation='relu', kernel_initializer='he_normal'))
+    model.add(Conv1D(32, 10, activation='relu', kernel_initializer='he_normal', input_shape=(self._config.dvd_trajlen, 100)))
+    # model.add(Conv1D(32, 5, activation='relu', kernel_initializer='he_normal'))
     model.add(Conv1D(64, 5, activation='relu', kernel_initializer='he_normal'))
-    model.add(Conv1D(64, 5, activation='relu', kernel_initializer='he_normal'))
+    # model.add(Conv1D(64, 5, activation='relu', kernel_initializer='he_normal'))
     model.add(Flatten())
     model.add(Dense(512, activation='relu'))
     model.add(Dense(256, activation='relu'))
@@ -105,48 +105,40 @@ class Plan2Explore(tools.Module):
     return model
 
         
-  def _intrinsic_reward(self, feat, state, action, ours = False):
-    if ours:
-        preds = [head(feat, tf.float32).mean() for head in self._networks]
-        
-        raw_preds = self._networks[0](feat) # [head(feat, tf.float32) for head in self._networks]
-        print(feat)
-        print(raw_preds)
-        
-        exit()
-        avg_pred = tf.math.reduce_mean(preds, 0)
-        print("avg", avg_pred)
-        
-        final_preds = tf.reshape(preds[0], (45, 50, 50))
-        print("FP", final_preds)
-        exit()
-        disag = tf.reduce_mean(tf.math.reduce_std(preds, 0), -1)
-        if self._config.disag_log:
-          disag = tf.math.log(disag)
-        reward = self._config.expl_intr_scale * disag
-        if self._config.expl_extr_scale:
-          reward += tf.cast(self._config.expl_extr_scale * self._reward(
-              feat, state, action), tf.float32)
-        # reward += self.dvd()
-    else:
-        preds = [head(feat, tf.float32).mean() for head in self._networks]
-        disag = tf.reduce_mean(tf.math.reduce_std(preds, 0), -1)
-        if self._config.disag_log:
-          disag = tf.math.log(disag)
-        reward = self._config.expl_intr_scale * disag
-        if self._config.expl_extr_scale:
-          reward += tf.cast(self._config.expl_extr_scale * self._reward(
-              feat, state, action), tf.float32)
+  def _intrinsic_reward(self, feat, state, action):
+    def measure_dvd_similarity(pred):
+      pred_rs = tf.transpose(pred, perm=[1, 0, 2])
+      tgt = tf.repeat(self.target_videos, self._config.batch_length, axis=0)
+      inp = tf.concat([tgt, pred_rs], -1)
+      score = tf.transpose(self.dvd(inp))
+      return score
+    
+    t0 = time.time()
+    preds = [head(feat, tf.float32).mean() for head in self._networks]
+    if self._config.dvd_score_weight > 0:
+      scores = [measure_dvd_similarity(head(feat).mean()) for head in self._networks]
+      avg_score = tf.math.reduce_mean(scores, 0)
+    t1 = time.time()
+    print("DVD SIM TIME", t1-t0)
+
+    disag = tf.reduce_mean(tf.math.reduce_std(preds, 0), -1)
+    if self._config.disag_log:
+      disag = tf.math.log(disag)
+    reward = self._config.expl_intr_scale * disag
+
+    if self._config.dvd_score_weight > 0:
+      reward = reward + self._config.dvd_score_weight * tf.cast(avg_score, tf.float32)
+    if self._config.expl_extr_scale:
+      reward += tf.cast(self._config.expl_extr_scale * self._reward(
+          feat, state, action), tf.float32)
     return reward
 
   def _train_dvd(self, dvd_pos_latent, dvd_neg_latent, dvd_anchor_latent):
+    dvd_pos_latent = tf.reshape(dvd_pos_latent, [self._config.batch_size, self._config.dvd_trajlen, 50])
+    dvd_neg_latent = tf.reshape(dvd_neg_latent, [self._config.batch_size, self._config.dvd_trajlen, 50])
+    dvd_anchor_latent = tf.reshape(dvd_anchor_latent, [self._config.batch_size, self._config.dvd_trajlen, 50])
     
-    dvd_pos_latent = tf.reshape(dvd_pos_latent, [45, 50, 50])
-    dvd_neg_latent = tf.reshape(dvd_neg_latent, [45, 50, 50])
-    dvd_anchor_latent = tf.reshape(dvd_anchor_latent, [45, 50, 50])
-    # print(dvd_pos_latent)
-    # print(dvd_anchor_latent)
-    # print(dvd_neg_latent)
+    self.target_videos = dvd_anchor_latent
     
     pos_example = tf.concat([dvd_anchor_latent, dvd_pos_latent], -1)
     neg_example = tf.concat([dvd_anchor_latent, dvd_neg_latent], -1)
@@ -158,28 +150,17 @@ class Plan2Explore(tools.Module):
       labels_neg = tf.zeros_like(preds[:(preds.shape[0] // 2)])
       labels_pos = tf.ones_like(preds[:(preds.shape[0] // 2)])
       labels = tf.concat([labels_pos, labels_neg], 0)
-      # print(preds)
-      # print(labels)
       loss = self.bce(preds, labels)
-    metrics = self._opt(tape, loss, self.dvd)
+    metrics = self._dvd_opt(tape, loss, self.dvd)
     return metrics
   
   
-  
   def _train_ensemble(self, inputs, targets):
-    # print(inputs)
-    # print(targets)
-    # exit()
-
     if self._config.disag_offset:
       targets = targets[:, self._config.disag_offset:]
       inputs = inputs[:, :-self._config.disag_offset]
     targets = tf.stop_gradient(targets)
     inputs = tf.stop_gradient(inputs)
-    # print(inputs)
-    # print("FWOJ")
-    # print(targets)
-    # exit()
     """ Niveditha: Should we just add the value of human score here?"""
     with tf.GradientTape() as tape:
       preds = [head(inputs) for head in self._networks]

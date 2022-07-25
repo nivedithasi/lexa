@@ -103,25 +103,27 @@ def main(logdir, config):
 #             [Scale(upscale_size_train), "img"],
 #             [RandomCropVideo(64), "img"],
 #              ])
-  transform_eval_pre = ComposeMix([
-          [Scale(upscale_size_eval), "img"],
-          [torchvision.transforms.ToPILImage(), "img"],
-          [torchvision.transforms.CenterCrop(64), "img"],
-           ])
-  transform_post = ComposeMix([[torchvision.transforms.ToTensor(), "img"],])
-  dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/',
-                           json_file_input='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json',
-                           json_file_labels='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json',
-                             clip_size= config.batch_length, #args.traj_length,
-                             nclips=1,
-                             step_size=1,
-                             num_tasks=2, #args.num_tasks,
-                             is_val=False,
-                             transform_pre=transform_eval_pre,
-                             transform_post=transform_post,
-                             ) # Niveditha: add args back
-    
-  dvd_dataset = make_dvd_dataset(dvd_data, config)
+  dvd_dataset  = None
+  if config.dvd_score_weight > 0.0:
+      transform_eval_pre = ComposeMix([
+              [Scale(upscale_size_eval), "img"],
+              [torchvision.transforms.ToPILImage(), "img"],
+              [torchvision.transforms.CenterCrop(64), "img"],
+               ])
+      transform_post = ComposeMix([[torchvision.transforms.ToTensor(), "img"],])
+      dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/',
+                               json_file_input='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json',
+                               json_file_labels='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json',
+                                 clip_size= config.dvd_trajlen, #args.traj_length,
+                                 nclips=1,
+                                 step_size=1,
+                                 num_tasks=3, #args.num_tasks,
+                                 is_val=False,
+                                 transform_pre=transform_eval_pre,
+                                 transform_post=transform_post,
+                                 ) # Niveditha: add args back
+
+      dvd_dataset = make_dvd_dataset(dvd_data, config)
   random_agent = lambda o, d, s: ([acts.sample() for _ in d], s)
   tools.simulate(random_agent, train_envs, prefill)
   if count_steps(config.evaldir) == 0:
