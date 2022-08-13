@@ -17,30 +17,6 @@ import torch.distributed as dist
 from torchvision.datasets.video_utils import VideoClips
 import pytorch_lightning as pl
 
-class MetaworldDataset(data.Dataset):
-    def __init__(self, data):
-        self.data = data
-        
-    def __len__(self):
-        return self.data.shape[1]
-
-    def __getitem__(self, idx):
-        data = np.moveaxis(self.data[:, idx, :, :, :], -1, 0)
-        data_normed = -1 + 2 * data.astype(np.float32) / 255 
-        return data_normed
-        
-class MnistDataset(data.Dataset):
-    def __init__(self, data):
-        self.data = data
-    
-    def __len__(self):
-        return self.data.shape[1]
-
-    def __getitem__(self, idx):
-        data = np.repeat(np.expand_dims(self.data[:, idx, :, :], 0), 3, 0)
-        data_normed = -1 + 2 * data.astype(np.float32) / 255 
-        return data_normed
-
 class VideoDataset(data.Dataset):
     """ Generic dataset for videos files stored in folders
     Returns BCTHW videos in the range [-0.5, 0.5] """
@@ -106,10 +82,6 @@ class VideoDataset(data.Dataset):
             return (video[:, start, :, :], video[:, end, :, :], horizon)
         else:
             raise ValueError("No valid frame type specified")
-            
-        
-
-
 
 def get_parent_dir(path):
     return osp.basename(osp.dirname(path))
