@@ -7,7 +7,8 @@ import numpy as np
 import pickle
 import pathlib
 import off_policy
-from dataloader import VideoFolder
+# from dataloader import VideoFolder
+from dataloader_parsed import VideoFolder
 from args import load_args
 from collections import defaultdict
 import torchvision
