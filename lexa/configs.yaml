@@ -17,6 +17,7 @@ defaults:
   # New
   dvd_trajlen: 15
   dvd_score_weight: 1.0
+  dvd_e2e: False
 
   # Environment
   task: 'dmc_walker_walk'

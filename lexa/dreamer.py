@@ -80,13 +80,12 @@ class Dreamer(tools.Module):
 
   def __call__(self, obs, reset, state=None, training=True):
     step = self._step.numpy().item()
-    print("_"*10)
-    print(step)
     if self._should_reset(step):
       state = None
     if state is not None and reset.any():
       mask = tf.cast(1 - reset, self._float)[:, None]
       state = tf.nest.map_structure(lambda x: x * mask, state)
+    print("_"*10, "Step:", step)
     if training and self._should_train(step):
       steps = (
           self._config.pretrain if self._should_pretrain()
@@ -101,15 +100,18 @@ class Dreamer(tools.Module):
         t00 = time.time()
         start, feat = self._train(_data, _dvd_data)
         t1 = time.time()
-        print(f"SAMPLE TIME {t00-t0} TRAIN TIME {t1 - t00}")
-
+      print(f"TRAINING: SAMPLE TIME {t00-t0} TRAIN TIME {t1 - t00}")
       if self._should_log(step):
         for name, mean in self._metrics.items():
           self._logger.scalar(name, float(mean.result()))
+          print(f"{name}: {float(mean.result())}, ", end='')
           mean.reset_states()
         openl = self._wm.video_pred(next(self._dataset))
         self._logger.video('train_openl', openl)
         self._logger.write(fps=True)
+      print("_"*30)
+        
+      
 
     if training:
       action, state = self._policy(obs, state, training, reset)
@@ -185,30 +187,31 @@ class Dreamer(tools.Module):
 
   @tf.function
   def _train(self, data, dvd_data=None, our=True):
+    
     metrics = {}
     t0 = time.time()
     embed, post, feat, kl, mets = self._wm.train(data)
 
     t1 = time.time()
-    if self._config.dvd_score_weight > 0.0:
-        dvd_obs = {}
-        dvd_data_dict = {}
-        dvd_data_dict["pos"] = dvd_data[:, :, :, :, :3]
-        dvd_data_dict["anchor"] = dvd_data[:, :, :, :, 3:6]
-        dvd_data_dict["neg"] = dvd_data[:, :, :, :, 6:]
+    # if self._config.dvd_score_weight > 0.0:
+        # dvd_obs = {}
+        # dvd_data_dict = {}
+#         dvd_data_dict["pos"] = dvd_data[:, :, :, :, :3]
+#         dvd_data_dict["anchor"] = dvd_data[:, :, :, :, 3:6]
+#         dvd_data_dict["neg"] = dvd_data[:, :, :, :, 6:]
               
-        dvd_obs["image"] = tf.reshape(dvd_data_dict["pos"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
-        _, dvd_pos_latent = self._wm.get_init_feat(dvd_obs)
+#         dvd_obs["image"] = tf.reshape(dvd_data_dict["pos"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
+#         _, dvd_pos_latent = self._wm.get_init_feat(dvd_obs)
 
-        dvd_obs = {}
-        dvd_obs["image"] = tf.reshape(dvd_data_dict["neg"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
-        _, dvd_neg_latent = self._wm.get_init_feat(dvd_obs)
+#         dvd_obs = {}
+#         dvd_obs["image"] = tf.reshape(dvd_data_dict["neg"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
+#         _, dvd_neg_latent = self._wm.get_init_feat(dvd_obs)
 
-        dvd_obs = {}
-        dvd_obs["image"] = tf.reshape(dvd_data_dict["anchor"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
-        _, dvd_anchor_latent = self._wm.get_init_feat(dvd_obs)
-    else:
-        dvd_pos_latent, dvd_neg_latent, dvd_anchor_latent = None, None, None
+#         dvd_obs = {}
+#         dvd_obs["image"] = tf.reshape(dvd_data_dict["anchor"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
+#         _, dvd_anchor_latent = self._wm.get_init_feat(dvd_obs)
+    # else:
+    #     dvd_pos_latent, dvd_neg_latent, dvd_anchor_latent = None, None, None
     t2 = time.time()
 
     metrics.update(mets)
@@ -218,7 +221,6 @@ class Dreamer(tools.Module):
     if self._config.imag_on_policy:
       #defined on line 64, seems to just train a couple of models stored in the 
       metrics.update(self._task_behavior.train(start, obs=data)[-1])
-      # metrics.update(self._task_behavior.train(start, obs=dvd_data)[-1])
 
     if self._config.gc_reward == 'dynamical_distance' and self._config.dd_train_off_policy:
       metrics.update(self._task_behavior.train_dd_off_policy(self._wm.encoder(self._wm.preprocess(data))))
@@ -228,10 +230,10 @@ class Dreamer(tools.Module):
       TODO: 
       Will need to also need to pass the embedded human videos in here
       """
-      mets = self._expl_behavior.train(start, feat, embed, kl, 
-                                       dvd_pos_latent, 
-                                       dvd_neg_latent,
-                                       dvd_anchor_latent)[-1]
+      mets = self._expl_behavior.train(start, feat, embed, kl, dvd_data, self._wm)[-1]
+                                       # dvd_pos_latent, 
+                                       # dvd_neg_latent,
+                                       # dvd_anchor_latent, self._wm)[-1]
       metrics.update({'expl_' + key: value for key, value in mets.items()})
       
     t4 = time.time()
@@ -243,8 +245,6 @@ class Dreamer(tools.Module):
     for name, value in metrics.items():
       self._metrics[name].update_state(value)
       
-    print(f"Normal train {t1-t0}, DVD Encodings {t2-t1}, Exploration Train {t4-t3}")
-
     return start, feat
 
 def count_steps(folder):
@@ -284,7 +284,7 @@ def make_dvd_dataset(dvd_data, config):
                       inp = [],
                       Tout = tf.float32)  # label
   
-  dataset = dataset.map(wrapped_complex_calulation, num_parallel_calls=tf.data.AUTOTUNE)
+  dataset = dataset.map(wrapped_complex_calulation, num_parallel_calls=8)
   dataset = dataset.batch(config.batch_size, drop_remainder=True)
   
   dataset = dataset.prefetch(10)
