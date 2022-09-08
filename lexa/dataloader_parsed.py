@@ -383,6 +383,10 @@ class VideoFolder():
         """
         
         def getindices():
+          # for _ in range(100):
+            # item = random.choice(self.json_data) 
+            # print(item)
+          # assert(False)
           item = random.choice(self.json_data) 
           anchor = random.choice(self.json_dict[item.label])
           neg = random.choice(self.json_data)
@@ -393,8 +397,11 @@ class VideoFolder():
         def process(vidid):
           vidpath = f"/iris/u/nivsiyer/something_something/{vidid}"
           vidlen = len(os.listdir(vidpath))
-          start = np.random.randint(0, max(1,vidlen - self.traj_length))
-          end = min(vidlen, start+self.traj_length) - 1
+          # print(vidlen)
+          start =  np.random.randint(0, vidlen * 0.2)
+          end = np.random.randint(vidlen * 0.8, vidlen)
+          # start = np.random.randint(0, max(1,vidlen - self.traj_length))
+          # end = min(vidlen, start+self.traj_length) - 1
           ims = []
           ims.append(tf.keras.preprocessing.image.load_img(
                   vidpath+f"/{start}.jpg",
