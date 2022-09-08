@@ -119,7 +119,8 @@ class Plan2Explore(tools.Module):
     reward = self._config.expl_intr_scale * disag
 
     if self._config.dvd_score_weight > 0:
-      reward = reward + self._config.dvd_score_weight * tf.cast(avg_score, tf.float32)
+      reward = (1 - self._config.dvd_score_weight) * reward + self._config.dvd_score_weight * tf.cast(avg_score, tf.float32)
+      
     if self._config.expl_extr_scale:
       reward += tf.cast(self._config.expl_extr_scale * self._reward(
           feat, state, action), tf.float32)
@@ -140,7 +141,7 @@ class Plan2Explore(tools.Module):
     # inp = tf.stop_gradient(inp)
     with tf.GradientTape() as tape:
       dvd_reshaped= tf.reshape(dvd_data, [self._config.batch_size*3*self._config.dvd_trajlen, 64, 64, 3])
-      _, dvd_latent = worldmodel.get_init_feat({"image":dvd_reshaped})
+      _, dvd_latent = worldmodel.get_init_feat({"image": dvd_reshaped})
       dvd_latent_reshaped = tf.reshape(dvd_latent[self._config.disag_target], [self._config.batch_size, 3, self._config.dvd_trajlen, 50])
       
       pos_example = tf.concat([dvd_latent_reshaped[:, 1], dvd_latent_reshaped[:, 0]], -1)
