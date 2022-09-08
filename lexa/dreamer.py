@@ -107,6 +107,12 @@ class Dreamer(tools.Module):
           print(f"{name}: {float(mean.result())}, ", end='')
           mean.reset_states()
         openl = self._wm.video_pred(next(self._dataset))
+        if _dvd_data is not None:
+          a = tf.reshape(_dvd_data[:5, 1], [5, self._config.dvd_trajlen * 64, 64, 3])
+          p = tf.reshape(_dvd_data[:5, 0], [5, self._config.dvd_trajlen * 64, 64, 3])
+          n = tf.reshape(_dvd_data[:5, 2], [5,self._config.dvd_trajlen * 64, 64, 3])
+          ims = tf.concat([a, p, n], 2)
+          self._logger.image('frames', ims)
         self._logger.video('train_openl', openl)
         self._logger.write(fps=True)
       print("_"*30)
@@ -284,7 +290,7 @@ def make_dvd_dataset(dvd_data, config):
                       inp = [],
                       Tout = tf.float32)  # label
   
-  dataset = dataset.map(wrapped_complex_calulation, num_parallel_calls=8)
+  dataset = dataset.map(wrapped_complex_calulation, num_parallel_calls=4)
   dataset = dataset.batch(config.batch_size, drop_remainder=True)
   
   dataset = dataset.prefetch(10)
