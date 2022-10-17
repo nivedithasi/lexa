@@ -15,9 +15,10 @@ defaults:
   expl_gifs: False
   
   # New
-  dvd_trajlen: 15
+  dvd_trajlen: 2
   dvd_score_weight: 1.0
   dvd_e2e: False
+  dvd_dist: True
 
   # Environment
   task: 'dmc_walker_walk'
