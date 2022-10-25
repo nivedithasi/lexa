@@ -9,15 +9,12 @@ import pathlib
 import off_policy
 # from dataloader import VideoFolder
 from dataloader_parsed import VideoFolder
+from dataloader_ego4d import Ego4DVideoFolder
 from args import load_args
 from collections import defaultdict
 import torchvision
 from transforms_video import ComposeMix, RandomCropVideo, RandomRotationVideo, Scale
 from dreamer import Dreamer, setup_dreamer, create_envs, count_steps, make_dataset, make_dvd_dataset, parse_dreamer_args
-
-# if (!working) {
-#     working = true;
-# }
 
 class GCDreamer(Dreamer):
   def __init__(self, config, logger, dataset, dvd_dataset):
@@ -112,7 +109,8 @@ def main(logdir, config):
               [torchvision.transforms.CenterCrop(64), "img"],
                ])
       transform_post = ComposeMix([[torchvision.transforms.ToTensor(), "img"],])
-      dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/',
+      if config.use_sth_sth:
+          dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/',
                                json_file_input='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json',
                                json_file_labels='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json',
                                  clip_size= config.dvd_trajlen, #args.traj_length,
@@ -123,6 +121,13 @@ def main(logdir, config):
                                  transform_pre=transform_eval_pre,
                                  transform_post=transform_post,
                                  ) # Niveditha: add args back
+      else:
+          dvd_data = Ego4DVideoFolder(root= '/iris/u/nivsiyer/ego4d/videos2', manifest_csv='/iris/u/nivsiyer/ego4d/videos2/manifest.csv', 
+                                    clip_size=10, step_size=1, is_val=False,
+                                    transform_pre=None, transform_post=None,
+                                    augmentation_mappings_json=None, augmentation_types_todo=None,
+                                    is_test=False, robot_demo_transform=None)
+            
 
       dvd_dataset = make_dvd_dataset(dvd_data, config)
   random_agent = lambda o, d, s: ([acts.sample() for _ in d], s)
