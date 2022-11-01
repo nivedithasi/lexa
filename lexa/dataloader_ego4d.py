@@ -6,6 +6,7 @@ import h5py
 import pandas as pd
 
 import os
+import os.path
 
 import io
 import json
@@ -107,11 +108,38 @@ class Ego4DVideoFolder():
             
     def __getitem__(self, indices = None):
         
+        def frames_exist(video):
+            vidpath = video.vidpath
+            start_framepath = vidpath+f"/{video.start_frame:07}.jpg"
+            end_framepath = vidpath+f"/{video.start_frame:07}.jpg"
+            return os.path.isfile(start_framepath) and os.path.isfile(end_framepath) 
+                 
+            
         def getindices():
+          
           anchor = random.choice(self.labels) 
-          positives = self.csv[self.csv['label'] == anchor].sample(n = 2)
+          pos = self.csv[self.csv['label'] == anchor]
+          bothdone = False
+          if len(pos) >= 2:
+            pos2 = pos.sample(n=2)
+            positives1 = pos.iloc[0]
+            positives2 = pos.iloc[1]
+            bothdone = frames_exist(positives1) and frames_exist(positives2)
+        
+          while not bothdone:
+                anchor = random.choice(self.labels)
+                pos = self.csv[self.csv['label'] == anchor]
+                if len(pos) >= 2:
+                    pos2 = pos.sample(n=2)
+                    positives1 = pos.iloc[0]
+                    positives2 = pos.iloc[1]
+                    bothdone = frames_exist(positives1) and frames_exist(positives2)
+          
           neg = self.csv[self.csv['label'] != anchor].sample(n=1)
-          return positives.iloc[0], positives.iloc[1], neg.iloc[0]
+          while not frames_exist(neg.iloc[0]):
+            neg = self.csv[self.csv['label'] != anchor].sample(n=1)
+            
+          return positives1, positives2, neg.iloc[0]
         
         def process(video):
           vidpath = video.vidpath
@@ -136,6 +164,9 @@ class Ego4DVideoFolder():
 
               
         item, anchor, neg = getindices()
+        print(item)
+        print(anchor)
+        print(neg)
         
         pos_data = process(item)
         anchor_data  =  process(anchor)
