@@ -164,9 +164,9 @@ class Ego4DVideoFolder():
 
               
         item, anchor, neg = getindices()
-        print(item)
-        print(anchor)
-        print(neg)
+        # print(item)
+        # print(anchor)
+        # print(neg)
         
         pos_data = process(item)
         anchor_data  =  process(anchor)
