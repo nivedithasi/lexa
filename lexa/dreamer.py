@@ -307,11 +307,11 @@ def make_env(config, logger, mode, train_eps, eval_eps, use_goal_idx=False, log_
     env = envs.RoboBinEnv(config.action_repeat, use_goal_idx, log_per_goal)
   
   elif config.task == 'kitchen':
-    env = envs.KitchenEnv(config.action_repeat, use_goal_idx, log_per_goal)
+    env = envs.KitchenEnv(config.action_repeat, use_goal_idx, log_per_goal, camera_distance=config.camera_distance, azimuth=config.azimuth, elevation=config.elevation)
 
   elif config.task == 'joint':
    
-    kitchen_env = envs.KitchenEnv(config.action_repeat, use_goal_idx, False)
+    kitchen_env = envs.KitchenEnv(config.action_repeat, use_goal_idx, False, camera_distance=config.camera_distance, azimuth=config.azimuth, elevation=config.elevation)
     robobin_env = envs.RoboBinEnv(config.action_repeat, use_goal_idx, False)
     dmc_envs = list(envs.DmcEnv(task, config.size, config.action_repeat, use_goal_idx, log_per_goal) for task in ['walker_walk', 'quadruped_run'])
 
