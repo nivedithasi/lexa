@@ -108,7 +108,7 @@ class Ego4DVideoFolder():
     def frames_exist(self, video):
             vidpath = video.vidpath
             start_framepath = vidpath+f"/{video.start_frame:07}.jpg"
-            end_framepath = vidpath+f"/{video.start_frame:07}.jpg"
+            end_framepath = vidpath+f"/{video.end_frame:07}.jpg"
             return os.path.isfile(start_framepath) and os.path.isfile(end_framepath) 
         
 
@@ -116,6 +116,8 @@ class Ego4DVideoFolder():
           anchor = random.choice(self.labels)
           pos = self.csv[self.csv['label'] == anchor]
           bothdone = False
+            
+          
           if len(pos) >= 2:
             pos2 = pos.sample(n=2)
             positives1 = pos2.iloc[0]
