@@ -11,10 +11,10 @@ import os.path
 import io
 import json
 import numpy as np
-import torchvision
-from transforms_video import *
-from tensorflow import *
-import torchvision
+# import torchvision
+# from transforms_video import *
+# from tensorflow import *
+# import torchvision
 from transforms_video import *
 import tensorflow as tf
 import pdb
@@ -105,27 +105,24 @@ class Ego4DVideoFolder():
         data = tf.transpose(tf.convert_to_tensor(data), perm=[0, 2, 3, 1])
         return data
     
-            
-    def __getitem__(self, indices = None):
-        
-        def frames_exist(video):
+    def frames_exist(self, video):
             vidpath = video.vidpath
             start_framepath = vidpath+f"/{video.start_frame:07}.jpg"
-            end_framepath = vidpath+f"/{video.start_frame:07}.jpg"
+            end_framepath = vidpath+f"/{video.end_frame:07}.jpg"
             return os.path.isfile(start_framepath) and os.path.isfile(end_framepath) 
-                 
-            
-        def getindices():
-          
-          anchor = random.choice(self.labels) 
+        
+
+    def getindices(self):
+          anchor = random.choice(self.labels)
           pos = self.csv[self.csv['label'] == anchor]
           bothdone = False
+            
+          
           if len(pos) >= 2:
             pos2 = pos.sample(n=2)
             positives1 = pos2.iloc[0]
             positives2 = pos2.iloc[1]
             bothdone = frames_exist(positives1) and frames_exist(positives2) and (positives1.vidpath != positives2.vidpath)
-        
           while not bothdone:
                 anchor = random.choice(self.labels)
                 pos = self.csv[self.csv['label'] == anchor]
@@ -136,12 +133,13 @@ class Ego4DVideoFolder():
                     bothdone = frames_exist(positives1) and frames_exist(positives2) and (positives1.vidpath != positives2.vidpath)
           
           neg = self.csv[self.csv['label'] != anchor].sample(n=1)
-          while not frames_exist(neg.iloc[0]):
+          while not self.frames_exist(neg.iloc[0]):
             neg = self.csv[self.csv['label'] != anchor].sample(n=1)
             
-          return positives1, positives2, neg.iloc[0]
-        
-        def process(video):
+          return positives1, positives2, neg.iloc[0], anchor, neg.iloc[0]['label']
+    
+    
+    def process(self, video):
           vidpath = video.vidpath
           ims = []
           alpha = 0.3
@@ -166,21 +164,31 @@ class Ego4DVideoFolder():
           
           ims = tf.cast(tf.stack([tf.keras.preprocessing.image.img_to_array(x) for x in ims], 0), tf.float32) / 255.0
           return ims
+    
 
-              
-        item, anchor, neg = getindices()
-        # print(item)
-        # print(anchor)
-        # print(neg)
+    def get_ims_labels(self):
+        item, anchor, neg, pos_anchor, neg_anchor = self.getindices()
+
+        pos_data = self.process(item)
+        anchor_data  =  self.process(anchor)
+        neg_data =  self.process(neg)
         
-        pos_data = process(item)
-        anchor_data  =  process(anchor)
-        neg_data =  process(neg)
-        return tf.stack([pos_data, anchor_data, neg_data], 0) #){'pos': pos_data, 'anchor': anchor_data, 'neg': neg_data}
+        return pos_data, anchor_data, neg_data, anchor, pos_anchor, neg_anchor
+        
+        
+    def __getitem__(self, indices = None, get_labels=False):
+                            
+        item, anchor, neg, pos_anchor, neg_anchor = self.getindices()
+
+        pos_data = self.process(item)
+        anchor_data  = self.process(anchor)
+        neg_data =  self.process(neg)
+        return tf.stack([pos_data, anchor_data, neg_data], 0)
 
     def __len__(self):
         return len([name for name in os.listdir(self.root) if os.path.isdir(os.path.join(self.root, name))])
     
     def __call__(self):
         while True:
+#             yield  {'pos_anchor': tf.convert_to_tensor('null'), 'neg_anchor': tf.convert_to_tensor('nu;;'), 'imgs':0.0}
             yield 0.0

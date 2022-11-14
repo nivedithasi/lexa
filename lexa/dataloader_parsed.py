@@ -5,12 +5,14 @@ import os
 import h5py
 
 import os
+
+import io
 import json
 import numpy as np
-import torchvision
-from transforms_video import *
-from tensorflow import *
-import torchvision
+# import torchvision
+# from transforms_video import *
+# from tensorflow import *
+# import torchvision
 from transforms_video import *
 import tensorflow as tf
 import pdb
@@ -23,6 +25,7 @@ import json
 ListData = namedtuple('ListData', ['id', 'label', 'path'])
 FRAMERATE = 12  # default value
 
+# print(tf.__version__)
 class Augmentor(object):
     def __init__(self, augmentation_mappings_json=None,
                  augmentation_types_todo=None,
@@ -403,21 +406,26 @@ class VideoFolder():
           # start = np.random.randint(0, max(1,vidlen - self.traj_length))
           # end = min(vidlen, start+self.traj_length) - 1
           ims = []
-          ims.append(tf.keras.preprocessing.image.load_img(
+          # print("Version:", tf.__version__)
+          load1 = tf.keras.preprocessing.image.load_img(
                   vidpath+f"/{start}.jpg",
                   grayscale=False,
                   color_mode='rgb',
                   # target_size=(64,64),
                   # interpolation='bilinear',
-              ))
-          ims.append(tf.keras.preprocessing.image.load_img(
+              )
+          # print(load1)
+          ims.append(load1)
+          load2 = tf.keras.preprocessing.image.load_img(
                   vidpath+f"/{end}.jpg",
                   grayscale=False,
                   color_mode='rgb',
                   # target_size=(64,64),
                   # interpolation='bilinear',
-              ))
-          ims = tf.cast(tf.stack(ims, 0), tf.float32) / 255.0
+              )
+          ims.append(load2)
+          
+          ims = tf.cast(tf.stack([tf.keras.preprocessing.image.img_to_array(x) for x in ims], 0), tf.float32) / 255.0
           return ims
 
               
