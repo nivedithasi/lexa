@@ -122,18 +122,18 @@ class Ego4DVideoFolder():
           bothdone = False
           if len(pos) >= 2:
             pos2 = pos.sample(n=2)
-            positives1 = pos.iloc[0]
-            positives2 = pos.iloc[1]
-            bothdone = frames_exist(positives1) and frames_exist(positives2)
+            positives1 = pos2.iloc[0]
+            positives2 = pos2.iloc[1]
+            bothdone = frames_exist(positives1) and frames_exist(positives2) and (positives1.vidpath != positives2.vidpath)
         
           while not bothdone:
                 anchor = random.choice(self.labels)
                 pos = self.csv[self.csv['label'] == anchor]
                 if len(pos) >= 2:
                     pos2 = pos.sample(n=2)
-                    positives1 = pos.iloc[0]
-                    positives2 = pos.iloc[1]
-                    bothdone = frames_exist(positives1) and frames_exist(positives2)
+                    positives1 = pos2.iloc[0]
+                    positives2 = pos2.iloc[1]
+                    bothdone = frames_exist(positives1) and frames_exist(positives2) and (positives1.vidpath != positives2.vidpath)
           
           neg = self.csv[self.csv['label'] != anchor].sample(n=1)
           while not frames_exist(neg.iloc[0]):
@@ -144,16 +144,21 @@ class Ego4DVideoFolder():
         def process(video):
           vidpath = video.vidpath
           ims = []
+          alpha = 0.3
+          
+          vidlen = video.end_frame - video.start_frame
+          start = video.start_frame + int(np.random.uniform(0, alpha) * vidlen)
+          end = video.end_frame - int(np.random.uniform(0, alpha) * vidlen)
           # print("Version:", tf.__version__)
           load1 = tf.keras.preprocessing.image.load_img(
-                  vidpath+f"/{video.start_frame:07}.jpg",
+                  vidpath+f"/{start:07}.jpg",
                   grayscale=False,
                   color_mode='rgb',
               )
 
           ims.append(load1)
           load2 = tf.keras.preprocessing.image.load_img(
-                   vidpath+f"/{video.end_frame:07}.jpg",
+                   vidpath+f"/{end:07}.jpg",
                   grayscale=False,
                   color_mode='rgb',
               )
