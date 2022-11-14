@@ -122,7 +122,7 @@ class Ego4DVideoFolder():
             pos2 = pos.sample(n=2)
             positives1 = pos2.iloc[0]
             positives2 = pos2.iloc[1]
-            bothdone = frames_exist(positives1) and frames_exist(positives2) and (positives1.vidpath != positives2.vidpath)
+            bothdone = self.frames_exist(positives1) and self.frames_exist(positives2) #and (positives1.vidpath != positives2.vidpath)
           while not bothdone:
                 anchor = random.choice(self.labels)
                 pos = self.csv[self.csv['label'] == anchor]
@@ -130,13 +130,22 @@ class Ego4DVideoFolder():
                     pos2 = pos.sample(n=2)
                     positives1 = pos2.iloc[0]
                     positives2 = pos2.iloc[1]
-                    bothdone = frames_exist(positives1) and frames_exist(positives2) and (positives1.vidpath != positives2.vidpath)
+                    bothdone = self.frames_exist(positives1) and self.frames_exist(positives2) #and (positives1.vidpath != positives2.vidpath)
           
           neg = self.csv[self.csv['label'] != anchor].sample(n=1)
           while not self.frames_exist(neg.iloc[0]):
             neg = self.csv[self.csv['label'] != anchor].sample(n=1)
             
-          return positives1, positives2, neg.iloc[0], anchor, neg.iloc[0]['label']
+          while True:
+            glabel = random.choice(self.labels)
+            if ("kitchen" in glabel) or ("wash" in glabel) or ("pot" in glabel) or ("cook" in glabel):
+              break
+          guide = self.csv[self.csv['label'] == glabel]
+          g = guide.sample(n=1)
+          guideclip = g.iloc[0]
+          
+            
+          return positives1, positives2, neg.iloc[0], anchor, neg.iloc[0]['label'], guideclip
     
     
     def process(self, video):
@@ -144,46 +153,59 @@ class Ego4DVideoFolder():
           ims = []
           alpha = 0.3
           
-          vidlen = video.end_frame - video.start_frame
-          start = video.start_frame + int(np.random.uniform(0, alpha) * vidlen)
-          end = video.end_frame - int(np.random.uniform(0, alpha) * vidlen)
-          # print("Version:", tf.__version__)
-          load1 = tf.keras.preprocessing.image.load_img(
-                  vidpath+f"/{start:07}.jpg",
-                  grayscale=False,
-                  color_mode='rgb',
-              )
+          while True:
+            try:
+              vidlen = video.end_frame - video.start_frame
+              start = video.start_frame + int(np.random.uniform(0, alpha) * vidlen)
+              # print("Version:", tf.__version__)
+              load1 = tf.keras.preprocessing.image.load_img(
+                      vidpath+f"/{start:07}.jpg",
+                      grayscale=False,
+                      color_mode='rgb',
+                  )
 
-          ims.append(load1)
-          load2 = tf.keras.preprocessing.image.load_img(
-                   vidpath+f"/{end:07}.jpg",
-                  grayscale=False,
-                  color_mode='rgb',
-              )
-          ims.append(load2)
+              ims.append(load1)
+              break
+            except:
+              pass
+          
+          while True:
+            try:
+              end = video.end_frame - int(np.random.uniform(0, alpha) * vidlen)
+              load2 = tf.keras.preprocessing.image.load_img(
+                       vidpath+f"/{end:07}.jpg",
+                      grayscale=False,
+                      color_mode='rgb',
+                  )
+              ims.append(load2)
+              break
+            except:
+              pass
           
           ims = tf.cast(tf.stack([tf.keras.preprocessing.image.img_to_array(x) for x in ims], 0), tf.float32) / 255.0
           return ims
     
 
     def get_ims_labels(self):
-        item, anchor, neg, pos_anchor, neg_anchor = self.getindices()
+        item, anchor, neg, pos_anchor, neg_anchor, guideclip = self.getindices()
 
         pos_data = self.process(item)
         anchor_data  =  self.process(anchor)
         neg_data =  self.process(neg)
+        g_data =  self.process(guideclip)
         
-        return pos_data, anchor_data, neg_data, anchor, pos_anchor, neg_anchor
+        return pos_data, anchor_data, neg_data, anchor, pos_anchor, neg_anchor, g_data
         
         
     def __getitem__(self, indices = None, get_labels=False):
                             
-        item, anchor, neg, pos_anchor, neg_anchor = self.getindices()
+        item, anchor, neg, pos_anchor, neg_anchor, guideclip = self.getindices()
 
         pos_data = self.process(item)
         anchor_data  = self.process(anchor)
         neg_data =  self.process(neg)
-        return tf.stack([pos_data, anchor_data, neg_data], 0)
+        g_data =  self.process(guideclip)
+        return tf.stack([pos_data, anchor_data, neg_data, g_data], 0)
 
     def __len__(self):
         return len([name for name in os.listdir(self.root) if os.path.isdir(os.path.join(self.root, name))])

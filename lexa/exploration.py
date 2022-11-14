@@ -156,13 +156,13 @@ class Plan2Explore(tools.Module):
     # inp = tf.stop_gradient(inp)
     
     with tf.GradientTape() as tape:
-      dvd_reshaped= tf.reshape(dvd_data, [self._config.batch_size*3*self._config.dvd_trajlen, 64, 64, 3])
+      dvd_reshaped= tf.reshape(dvd_data, [self._config.batch_size*4*self._config.dvd_trajlen, 64, 64, 3])
       _, dvd_latent = worldmodel.get_init_feat({"image": dvd_reshaped})
-      dvd_latent_reshaped = tf.reshape(dvd_latent[self._config.disag_target], [self._config.batch_size, 3, self._config.dvd_trajlen, 50])
+      dvd_latent_reshaped = tf.reshape(dvd_latent[self._config.disag_target], [self._config.batch_size, 4, self._config.dvd_trajlen, 50])
       
       pos_example = tf.concat([dvd_latent_reshaped[:, 1], dvd_latent_reshaped[:, 0]], -1)
       neg_example = tf.concat([dvd_latent_reshaped[:, 1], dvd_latent_reshaped[:, 2]], -1)
-      self.target_videos = dvd_latent_reshaped[:, 1]
+      self.target_videos = dvd_latent_reshaped[:, 3]
       inp = tf.concat([pos_example, neg_example], 0)
       inp = tf.reshape(inp, [self._config.batch_size*2, self._config.dvd_trajlen * 2 * 50])
       
