@@ -123,6 +123,7 @@ class Ego4DVideoFolder():
             positives1 = pos2.iloc[0]
             positives2 = pos2.iloc[1]
             bothdone = self.frames_exist(positives1) and self.frames_exist(positives2) #and (positives1.vidpath != positives2.vidpath)
+
           while not bothdone:
                 anchor = random.choice(self.labels)
                 pos = self.csv[self.csv['label'] == anchor]
@@ -212,5 +213,4 @@ class Ego4DVideoFolder():
     
     def __call__(self):
         while True:
-#             yield  {'pos_anchor': tf.convert_to_tensor('null'), 'neg_anchor': tf.convert_to_tensor('nu;;'), 'imgs':0.0}
             yield 0.0
