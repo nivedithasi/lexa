@@ -90,7 +90,9 @@ class GCWorldModel(models.WorldModel):
     else:
       if (not training) or self._config.training_goals == 'env':
         # Never alter the goal when evaluating
-        _embed = self.encoder({'image': obs['image_goal'], 'state': obs.get('goal', None)})
+        # _embed = self.encoder({'image': obs['image_goal'], 'state': obs.get('goal', None)})
+        batch_size = obs['image_goal'].shape[0]
+        _embed = self.encoder({'image': obs['image_goal'], 'state': tf.zeros((batch_size, 16), dtype=tf.float16)}) # pass in dummy proprioception
         if self._config.gc_input == 'embed':
           return _embed
         elif 'feat' in self._config.gc_input:

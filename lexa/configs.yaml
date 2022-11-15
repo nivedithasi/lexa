@@ -35,6 +35,9 @@ defaults:
   atari_grayscale: False
   ee_control_mode: 'end_effector'
   reset_env: True
+  camera_distance: 1.86
+  azimuth: 90
+  elevation: -60
 
   # Model
   dyn_cell: 'gru_layer_norm'

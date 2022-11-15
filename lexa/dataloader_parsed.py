@@ -1,21 +1,14 @@
 import av
-import torch
 import numpy as np
 import os
-import h5py
 
 import os
 
 import io
 import json
 import numpy as np
-# import torchvision
-# from transforms_video import *
-# from tensorflow import *
-# import torchvision
 from transforms_video import *
 import tensorflow as tf
-import pdb
 import time
 
 from tensorflow.keras.layers import Permute 
@@ -391,6 +384,9 @@ class VideoFolder():
             # print(item)
           # assert(False)
           item = random.choice(self.json_data) 
+        #   while not os.path.exists(item.path):
+        #     item = random.choice(self.json_data) 
+        #   import pdb; pdb.set_trace()
           anchor = random.choice(self.json_dict[item.label])
           neg = random.choice(self.json_data)
           while neg.label == item.label:
@@ -398,7 +394,7 @@ class VideoFolder():
           return item, anchor, neg
         
         def process(vidid):
-          vidpath = f"/iris/u/nivsiyer/something_something/{vidid}"
+          vidpath = f"/shared/ademi_adeniji/something-something-dvd/{vidid}"
           vidlen = len(os.listdir(vidpath))
           # print(vidlen)
           start =  np.random.randint(0, vidlen * 0.2)

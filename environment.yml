@@ -77,7 +77,7 @@ dependencies:
     - lxml==4.6.3
     - markdown==3.3.4
     - matplotlib==3.3.4
-    - mujoco-py==2.0.2.13
+    # - mujoco-py==2.0.2.13
     - numba==0.53.1
     - numpy==1.19.5
     - numpy-quaternion==2021.4.5.14.42.35

@@ -1,4 +1,6 @@
 path = "/nlp/scr2/nlp/ego4d/data/raw/ego4d/v1/annotations/moments_train.json"
+# path = "/shared/group/ego4d/v1/annotations/moments_train.json"
+
 
 import json
 import pprint as pp
@@ -22,7 +24,10 @@ f = open(path)
 # returns JSON object as 
 # a dictionary
 data = json.load(f)
+
 ego_path = "/iris/u/nivsiyer/ego4d/"
+# ego_path = "/home/ademi_adeniji/ego4d/"
+
 resize_transform = transforms.Compose([
     transforms.Resize((64, 64)),
     # transforms.CenterCrop(224),
@@ -32,6 +37,8 @@ resize_transform = transforms.Compose([
 def process_vid(video):
     t0 = time.time()
     video_name = "/nlp/scr2/nlp/ego4d/data/raw/ego4d/v1/full_scale/" + video['video_uid'] + '.mp4'
+#     video_name = "/shared/group/ego4d/v1/full_scale/" + video['video_uid'] + '.mp4'
+
     try: 
         reader = av.open(video_name)
     except:
@@ -106,4 +113,8 @@ for mf in mfs:
         
 df = pd.DataFrame.from_dict(finalmanifest)
 print(df)
+
 df.to_csv("/iris/u/nivsiyer/ego4d/videos2/manifest.csv")
+
+# df.to_csv("/home/ademi_adeniji/ego4d/videos2/manifest.csv")
+

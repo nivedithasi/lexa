@@ -427,9 +427,9 @@ def main():
                ])
     transform_post = ComposeMix([[torchvision.transforms.ToTensor(), "img"],])
     
-    dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/',
-                               json_file_input='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json',
-                               json_file_labels='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json',
+    dvd_data = VideoFolder(root='/shared/ademi_adeniji/something-something',
+                               json_file_input='/shared/ademi_adeniji/something-something/something-something-v2-train.json',
+                               json_file_labels='/shared/ademi_adeniji/something-something/something-something-v2-labels.json',
                                  clip_size= 15, #config.dvd_trajlen, #args.traj_length,
                                  nclips=1,
                                  step_size=1,
