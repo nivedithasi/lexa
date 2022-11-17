@@ -12,7 +12,6 @@ import time
 
 from multiprocessing import Pool
 
-
 if config.cluster == "stanford":
     path = "/nlp/scr2/nlp/ego4d/data/raw/ego4d/v1/annotations/moments_train.json"
     ego_path = "/iris/u/nivsiyer/ego4d/"

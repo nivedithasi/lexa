@@ -8,22 +8,14 @@ import pickle
 import pathlib
 import off_policy
 # from dataloader import VideoFolder
+
+import torchvision
 from dataloader_parsed import VideoFolder
 from dataloader_ego4d import Ego4DVideoFolder
 from args import load_args
 from collections import defaultdict
 from transforms_video import ComposeMix, RandomCropVideo, RandomRotationVideo, Scale
 from dreamer import Dreamer, setup_dreamer, create_envs, count_steps, make_dataset, make_dvd_dataset, parse_dreamer_args
-
-    
-if config.cluster == "stanford":
-    root_path = '/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/'
-    json_file_input_path = '/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json'
-    json_file_labels_path = '/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json'
-else:
-    root_path = '/shared/ademi_adeniji/something-something-dvd'
-    json_file_input_path = '/shared/ademi_adeniji/something-something-dvd/something-something-v2-train.json'
-    json_file_labels_path = '/shared/ademi_adeniji/something-something-dvd/something-something-v2-labels.json'
     
 
 class GCDreamer(Dreamer):
@@ -33,6 +25,15 @@ class GCDreamer(Dreamer):
     super().__init__(config, logger, dataset, dvd_dataset)
     self._should_expl_ep = tools.EveryNCalls(config.expl_every_ep)
     self.skill_to_use = tf.zeros([0], dtype=tf.float16)
+    
+    if config.cluster == "stanford":
+        self.root_path = '/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/'
+        self.json_file_input_path = '/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json'
+        self.json_file_labels_path = '/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json'
+    else:
+        self.root_path = '/shared/ademi_adeniji/something-something-dvd'
+        self.json_file_input_path = '/shared/ademi_adeniji/something-something-dvd/something-something-v2-train.json'
+        self.json_file_labels_path = '/shared/ademi_adeniji/something-something-dvd/something-something-v2-labels.json'
 
   def get_one_time_skill(self):
     skill = self.skill_to_use
@@ -121,9 +122,9 @@ def main(logdir, config):
       transform_post = ComposeMix([[torchvision.transforms.ToTensor(), "img"],])
 
       if config.use_sth_sth:
-          dvd_data = VideoFolder(root=root_path,
-                               json_file_input=json_file_input_path,
-                               json_file_labels=json_file_labels_path,
+          dvd_data = VideoFolder(root=self.root_path,
+                               json_file_input=self.json_file_input_path,
+                               json_file_labels=self.json_file_labels_path,
                                  clip_size= config.dvd_trajlen, #args.traj_length,
                                  nclips=1,
                                  step_size=1,
