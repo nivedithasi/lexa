@@ -12,9 +12,19 @@ from dataloader_parsed import VideoFolder
 from dataloader_ego4d import Ego4DVideoFolder
 from args import load_args
 from collections import defaultdict
-import torchvision
 from transforms_video import ComposeMix, RandomCropVideo, RandomRotationVideo, Scale
 from dreamer import Dreamer, setup_dreamer, create_envs, count_steps, make_dataset, make_dvd_dataset, parse_dreamer_args
+
+    
+if config.cluster == "stanford":
+    root_path = '/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/'
+    json_file_input_path = '/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json'
+    json_file_labels_path = '/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json'
+else:
+    root_path = '/shared/ademi_adeniji/something-something-dvd'
+    json_file_input_path = '/shared/ademi_adeniji/something-something-dvd/something-something-v2-train.json'
+    json_file_labels_path = '/shared/ademi_adeniji/something-something-dvd/something-something-v2-labels.json'
+    
 
 class GCDreamer(Dreamer):
   def __init__(self, config, logger, dataset, dvd_dataset):
@@ -93,7 +103,6 @@ def main(logdir, config):
 
   prefill = max(0, config.prefill - count_steps(config.traindir))
   print(f'Prefill dataset ({prefill} steps).')
-#   args = load_args()
   upscale_size_train = int(1.4 * 64)
   upscale_size_eval = int(1.0 * 64)
 #   transform_train_pre = ComposeMix([
@@ -101,6 +110,7 @@ def main(logdir, config):
 #             [Scale(upscale_size_train), "img"],
 #             [RandomCropVideo(64), "img"],
 #              ])
+
   dvd_dataset  = None
   if config.dvd_score_weight > 0.0:
       transform_eval_pre = ComposeMix([
@@ -109,17 +119,12 @@ def main(logdir, config):
               [torchvision.transforms.CenterCrop(64), "img"],
                ])
       transform_post = ComposeMix([[torchvision.transforms.ToTensor(), "img"],])
-# <<<<<<< HEAD
+
       if config.use_sth_sth:
-          dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/',
-                               json_file_input='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-train.json',
-                               json_file_labels='/iris/u/surajn/workspace/language_offline_rl/sthsth/something-something-v2-labels.json',
-# =======
-#       dvd_data = VideoFolder(root='/shared/ademi_adeniji/something-something-dvd',
-#                                json_file_input='/shared/ademi_adeniji/something-something-dvd/something-something-v2-train.json',
-#                                json_file_labels='/shared/ademi_adeniji/something-something-dvd/something-something-v2-labels.json',
-# >>>>>>> ademi_proprio
-#                                  clip_size= config.dvd_trajlen, #args.traj_length,
+          dvd_data = VideoFolder(root=root_path,
+                               json_file_input=json_file_input_path,
+                               json_file_labels=json_file_labels_path,
+                                 clip_size= config.dvd_trajlen, #args.traj_length,
                                  nclips=1,
                                  step_size=1,
                                  num_tasks=3, #args.num_tasks,
@@ -127,19 +132,14 @@ def main(logdir, config):
                                  transform_pre=transform_eval_pre,
                                  transform_post=transform_post,
                                  ) # Niveditha: add args back
-# <<<<<<< HEAD
-      else:
+        else:
           dvd_data = Ego4DVideoFolder(root= '/iris/u/nivsiyer/ego4d/videos2', manifest_csv='/iris/u/nivsiyer/ego4d/videos2/manifest.csv', 
                                     clip_size=10, step_size=1, is_val=False,
                                     transform_pre=None, transform_post=None,
                                     augmentation_mappings_json=None, augmentation_types_todo=None,
                                     is_test=False, robot_demo_transform=None)
-            
-
-# =======
-                                 
-# >>>>>>> ademi_proprio
-      dvd_dataset = make_dvd_dataset(dvd_data, config)
+        dvd_dataset = make_dvd_dataset(dvd_data, config)
+        
   random_agent = lambda o, d, s: ([acts.sample() for _ in d], s)
   tools.simulate(random_agent, train_envs, prefill)
   if count_steps(config.evaldir) == 0:

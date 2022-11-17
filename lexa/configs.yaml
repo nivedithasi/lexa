@@ -1,5 +1,8 @@
 defaults:
 
+#   cluster: berkeley
+  cluster: stanford
+
   traindir: null
   evaldir: null
   offline_traindir: ''
