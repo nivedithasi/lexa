@@ -132,13 +132,13 @@ def main(logdir, config):
                                  transform_pre=transform_eval_pre,
                                  transform_post=transform_post,
                                  ) # Niveditha: add args back
-        else:
+      else:
           dvd_data = Ego4DVideoFolder(root= '/iris/u/nivsiyer/ego4d/videos2', manifest_csv='/iris/u/nivsiyer/ego4d/videos2/manifest.csv', 
                                     clip_size=10, step_size=1, is_val=False,
                                     transform_pre=None, transform_post=None,
                                     augmentation_mappings_json=None, augmentation_types_todo=None,
                                     is_test=False, robot_demo_transform=None)
-        dvd_dataset = make_dvd_dataset(dvd_data, config)
+      dvd_dataset = make_dvd_dataset(dvd_data, config)
         
   random_agent = lambda o, d, s: ([acts.sample() for _ in d], s)
   tools.simulate(random_agent, train_envs, prefill)
