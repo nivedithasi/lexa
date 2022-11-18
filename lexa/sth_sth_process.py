@@ -65,7 +65,12 @@ class VideoFolder():
     
     def process_video(self, item):
         item_id = item.split('/')[-1].split('.')[0]
-        os.makedirs("/iris/u/nivsiyer/something_something/" + item_id)
+        # if not os.path.exists("/shared/ademi_adeniji/something-something-dvd/" + item_id):
+        #     os.makedirs("/shared/ademi_adeniji/something-something-dvd/" + item_id)
+        if not os.path.exists("/home/ademi_adeniji/ego4dclips/" + item_id):
+            os.makedirs("/home/ademi_adeniji/ego4dclips/" + item_id)
+        else:
+            return
         try: 
             reader = av.open(item)
         except:
@@ -77,21 +82,23 @@ class VideoFolder():
         image = self.crop(image, 64, 64)
         count = 0
         while success:
-            cv2.imwrite("/iris/u/nivsiyer/something_something/%s/%s.jpg" % (str(item_id), count), image)     # save frame as JPEG file      
+            cv2.imwrite("/home/ademi_adeniji/ego4dclips/%s/%s.jpg" % (str(item_id), count), image)     # save frame as JPEG file      
+            # cv2.imwrite("/shared/ademi_adeniji/something-something-dvd/%s/%s.jpg" % (str(item_id), count), image)     # save frame as JPEG file      
             success,image = vidcap.read()
             if success:
                 image = self.resize(image, 64)
                 image = self.crop(image, 64, 64)
             # print(image)
-            print('Read a new frame: ', success)
+            # print('Read a new frame: ', success)
             count += 1
     
     def dump_vids(self):
-        for item in glob.glob(f'{self.root}*'):
+        for item in glob.glob(f'{self.root}/*'):
             self.process_video(item)
         
 def main():   
-    dvd_data = VideoFolder(root='/iris/u/asc8/workspace/humans/Humans/20bn-something-something-v2-all-videos/')
+    # dvd_data = VideoFolder(root='/shared/ademi_adeniji/something-something/20bn-something-something-v2')
+    dvd_data = VideoFolder(root='/shared/group/ego4d/v1/clips')
     dvd_data.dump_vids()
    
 if __name__ == '__main__':

@@ -53,7 +53,10 @@ class Plan2Explore(tools.Module):
     #     shape=200, layers=4, units=config.disag_units,
     #     act=config.act)
     # self.dvd = networks.DenseHead(**dvdkw)
-    self.dvd = networks.get_dvd_model("dvd", [512, 512, 256, 128, 64, 32], 1)
+    if not self._config.dvd_dist:
+        self.dvd = networks.get_dvd_model("dvd", [512, 512, 256, 128, 64, 32], 1)
+    else:
+        self.dvd = networks.get_dvd_model_dist("dvd", [512, 512, 256, 128], 100)
     # assert(False)
     # self.dvd = self.mlp_dvd_model()
     self.bce = tf.keras.losses.BinaryCrossentropy(from_logits=False)
@@ -95,7 +98,15 @@ class Plan2Explore(tools.Module):
     metrics.update(self._behavior.train(start, self._intrinsic_reward)[-1])
     return None, metrics
         
-  def _intrinsic_reward(self, feat, state, action):
+  def _intrinsic_reward(self, feat, state, action, use_dist=False):
+#     print("This is input to _intrinsic_reward")
+#     print(feat)
+#     print()
+#     print(state)
+#     print()
+#     print(action)
+#     print()
+    
     def measure_dvd_similarity(pred):
       pred_rs = tf.transpose(pred, perm=[1, 0, 2])
       pred_rs = tf.stack([pred_rs[:, 0], pred_rs[:, -1]], 1)
@@ -104,26 +115,30 @@ class Plan2Explore(tools.Module):
       inp = tf.reshape(inp, [self._config.batch_length * self._config.batch_size, self._config.dvd_trajlen * 2 * 50])
       score = tf.transpose(self.dvd(inp))
       return score
-    
-    t0 = time.time()
-    preds = [head(feat, tf.float32).mean() for head in self._networks]
-    if self._config.dvd_score_weight > 0:
-      scores = [measure_dvd_similarity(head(feat).mean()) for head in self._networks]
-      avg_score = tf.math.reduce_mean(scores, 0)
-      # return tf.cast(tf.repeat(avg_score, self._config.imag_horizon, axis=0), tf.float32)
-    t1 = time.time()
 
-    disag = tf.reduce_mean(tf.math.reduce_std(preds, 0), -1)
-    if self._config.disag_log:
-      disag = tf.math.log(disag)
-    reward = self._config.expl_intr_scale * disag
+    if not use_dist:
+        t0 = time.time()
+        preds = [head(feat, tf.float32).mean() for head in self._networks]
+        if self._config.dvd_score_weight > 0:
+            scores = [measure_dvd_similarity(head(feat).mean()) for head in self._networks]
+            avg_score = tf.math.reduce_mean(scores, 0)
+            # return tf.cast(tf.repeat(avg_score, self._config.imag_horizon, axis=0), tf.float32)
+        t1 = time.time()
 
+        disag = tf.reduce_mean(tf.math.reduce_std(preds, 0), -1)
+        if self._config.disag_log:
+            disag = tf.math.log(disag)
+        reward = self._config.expl_intr_scale * disag
+
+    else:
+        print("Using distance for dvd reward...")
+        
     if self._config.dvd_score_weight > 0:
-      reward = (1 - self._config.dvd_score_weight) * reward + self._config.dvd_score_weight * tf.cast(avg_score, tf.float32)
-      
+        reward = (1 - self._config.dvd_score_weight) * reward + self._config.dvd_score_weight * tf.cast(avg_score, tf.float32)
+
     if self._config.expl_extr_scale:
-      reward += tf.cast(self._config.expl_extr_scale * self._reward(
-          feat, state, action), tf.float32)
+        reward += tf.cast(self._config.expl_extr_scale * self._reward(feat, state, action), tf.float32)
+    
     return reward
 
   def _train_dvd(self, dvd_data, worldmodel):
@@ -139,25 +154,35 @@ class Plan2Explore(tools.Module):
 #     inp = tf.reshape(inp, [self._config.batch_size*2, self._config.dvd_trajlen * 2 * 50])
     
     # inp = tf.stop_gradient(inp)
+    
     with tf.GradientTape() as tape:
-      dvd_reshaped= tf.reshape(dvd_data, [self._config.batch_size*3*self._config.dvd_trajlen, 64, 64, 3])
+      dvd_reshaped= tf.reshape(dvd_data, [self._config.batch_size*4*self._config.dvd_trajlen, 64, 64, 3])
       _, dvd_latent = worldmodel.get_init_feat({"image": dvd_reshaped})
-      dvd_latent_reshaped = tf.reshape(dvd_latent[self._config.disag_target], [self._config.batch_size, 3, self._config.dvd_trajlen, 50])
+      dvd_latent_reshaped = tf.reshape(dvd_latent[self._config.disag_target], [self._config.batch_size, 4, self._config.dvd_trajlen, 50])
       
       pos_example = tf.concat([dvd_latent_reshaped[:, 1], dvd_latent_reshaped[:, 0]], -1)
       neg_example = tf.concat([dvd_latent_reshaped[:, 1], dvd_latent_reshaped[:, 2]], -1)
-      self.target_videos = dvd_latent_reshaped[:, 1]
+      self.target_videos = dvd_latent_reshaped[:, 3]
       inp = tf.concat([pos_example, neg_example], 0)
       inp = tf.reshape(inp, [self._config.batch_size*2, self._config.dvd_trajlen * 2 * 50])
       
       if not self._config.dvd_e2e:
         inp = tf.stop_gradient(inp)
       
-      preds = self.dvd(inp)
-      labels_neg = tf.zeros_like(preds[:(preds.shape[0] // 2)])
-      labels_pos = tf.ones_like(preds[:(preds.shape[0] // 2)])
-      labels = tf.concat([labels_pos, labels_neg], 0)
-      loss = self.bce(labels, preds)
+      print("this is input:", inp)
+      if not self._config.dvd_dist:
+        preds = self.dvd(inp)
+        labels_neg = tf.zeros_like(preds[:(preds.shape[0] // 2)])
+        labels_pos = tf.ones_like(preds[:(preds.shape[0] // 2)])
+        labels = tf.concat([labels_pos, labels_neg], 0)
+        loss = self.bce(labels, preds)
+      else:
+        preds = self.dvd(inp)
+        print(preds)
+        # labels_neg = tf.zeros_like(preds[:(preds.shape[0] // 2)])
+        # labels_pos = tf.ones_like(preds[:(preds.shape[0] // 2)])
+        # labels = tf.concat([labels_pos, labels_neg], 0)
+        # loss = self.bce(labels, preds)
       
     if self._config.dvd_e2e:
       metrics = self._dvd_opt(tape, loss, [self.dvd, worldmodel])

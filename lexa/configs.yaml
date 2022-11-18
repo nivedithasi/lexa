@@ -1,5 +1,8 @@
 defaults:
 
+#   cluster: berkeley
+  cluster: stanford
+
   traindir: null
   evaldir: null
   offline_traindir: ''
@@ -14,10 +17,14 @@ defaults:
   debug: False
   expl_gifs: False
   
+  # Dataset type
+  use_sth_sth: False
+  
   # New
-  dvd_trajlen: 15
+  dvd_trajlen: 2
   dvd_score_weight: 1.0
   dvd_e2e: False
+  dvd_dist: False
 
   # Environment
   task: 'dmc_walker_walk'
@@ -31,6 +38,9 @@ defaults:
   atari_grayscale: False
   ee_control_mode: 'end_effector'
   reset_env: True
+  camera_distance: 1.86
+  azimuth: 90
+  elevation: -60
 
   # Model
   dyn_cell: 'gru_layer_norm'
