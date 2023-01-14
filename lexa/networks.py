@@ -551,3 +551,11 @@ def get_dvd_model_dist(name, hidden_units, out_dim):
         model.add(tfk.layers.Dense(units, activation='elu'))
     model.add(tfk.layers.Dense(out_dim, activation='elu'))
   return model
+
+def get_dvd_model_cls(name, hidden_units, out_dim):
+  with tf.name_scope(name) as scope:
+    model = tfk.Sequential()
+    for units in hidden_units:
+        model.add(tfk.layers.Dense(units, activation='elu'))
+    model.add(tfk.layers.Dense(out_dim, activation='softmax'))
+  return model

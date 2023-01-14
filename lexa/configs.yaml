@@ -25,6 +25,7 @@ defaults:
   dvd_score_weight: 1.0
   dvd_e2e: False
   dvd_dist: False
+  dvd_classifier: False
 
   # Environment
   task: 'dmc_walker_walk'

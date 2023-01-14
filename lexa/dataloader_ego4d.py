@@ -25,6 +25,8 @@ from tensorflow.keras.layers import Permute
 from collections import namedtuple, defaultdict, Counter
 import json
 
+from sklearn import preprocessing
+
 ListData = namedtuple('ListData', ['label', 'vidpath', 'start_frame', 'end_frame'])
 FRAMERATE = 12  # default value 
 
@@ -33,12 +35,13 @@ class Ego4DVideoFolder():
     def __init__(self, root, manifest_csv, clip_size=2, step_size=0, is_val=False,
                  transform_pre=None, transform_post=None,
                  augmentation_mappings_json=None, augmentation_types_todo=None,
-                 is_test=False, robot_demo_transform=None): # add back args later
+                 is_test=False, robot_demo_transform=None, classifier=False): # add back args later
         
         vidpath = "/iris/u/nivsiyer/ego4d/videos"
         self.csv = pd.read_csv(manifest_csv)
         self.labels = self.csv['label'].unique()
         self.num_tasks = len(self.labels)
+        self.classifier = classifier
         
         self.is_val = is_val
 
@@ -56,9 +59,13 @@ class Ego4DVideoFolder():
         self.similarity = True #args.similarity
         self.add_demos = 60 #args.add_demos 
         
-        classes = []
-        self.classes = classes
-        num_occur = defaultdict(int)
+#         classes = []
+#         self.classes = classes
+#         num_occur = defaultdict(int)
+        self.le = preprocessing.LabelBinarizer()
+        self.le.fit(self.labels)
+        self.categories = len(self.le.classes_)
+        # import pdb; pdb.set_trace()
                             
         print("Number of human videos: ", len(self.csv), "Total:", self.__len__())
 
@@ -199,14 +206,21 @@ class Ego4DVideoFolder():
         
         
     def __getitem__(self, indices = None, get_labels=False):
-                            
-        item, anchor, neg, pos_anchor, neg_anchor, guideclip = self.getindices()
+        if self.classifier:
+          label = random.choice(self.labels)
+          pos = self.csv[self.csv['label'] == label]
+          pos = pos.sample(n=1).iloc[0]
+          pos_data  = self.process(pos)
+          finallabel = tf.cast(tf.stack(self.le.transform([label]))[0], tf.float16)
+          return (pos_data, finallabel)
+        else:
+          item, anchor, neg, pos_anchor, neg_anchor, guideclip = self.getindices()
 
-        pos_data = self.process(item)
-        anchor_data  = self.process(anchor)
-        neg_data =  self.process(neg)
-        g_data =  self.process(guideclip)
-        return tf.stack([pos_data, anchor_data, neg_data, g_data], 0)
+          pos_data = self.process(item)
+          anchor_data  = self.process(anchor)
+          neg_data =  self.process(neg)
+          g_data =  self.process(guideclip)
+          return tf.stack([pos_data, anchor_data, neg_data, g_data], 0)
 
     def __len__(self):
         return len([name for name in os.listdir(self.root) if os.path.isdir(os.path.join(self.root, name))])

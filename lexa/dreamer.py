@@ -108,11 +108,16 @@ class Dreamer(tools.Module):
           mean.reset_states()
         openl = self._wm.video_pred(next(self._dataset))
         if _dvd_data is not None:
-          a = tf.reshape(_dvd_data[:5, 1], [5, self._config.dvd_trajlen * 64, 64, 3])
-          p = tf.reshape(_dvd_data[:5, 0], [5, self._config.dvd_trajlen * 64, 64, 3])
-          n = tf.reshape(_dvd_data[:5, 2], [5,self._config.dvd_trajlen * 64, 64, 3])
-          ims = tf.concat([a, p, n], 2)
-          self._logger.image('frames', ims)
+          if self._config.dvd_classifier:
+            a = tf.reshape(_dvd_data[0][:5, :], [5, self._config.dvd_trajlen * 64, 64, 3])
+            ims = a
+            self._logger.image('frames', ims)
+          else:
+            a = tf.reshape(_dvd_data[:5, 1], [5, self._config.dvd_trajlen * 64, 64, 3])
+            p = tf.reshape(_dvd_data[:5, 0], [5, self._config.dvd_trajlen * 64, 64, 3])
+            n = tf.reshape(_dvd_data[:5, 2], [5,self._config.dvd_trajlen * 64, 64, 3])
+            ims = tf.concat([a, p, n], 2)
+            self._logger.image('frames', ims)
         self._logger.video('train_openl', openl)
         self._logger.write(fps=True)
       print("_"*30)
@@ -199,25 +204,6 @@ class Dreamer(tools.Module):
     embed, post, feat, kl, mets = self._wm.train(data)
 
     t1 = time.time()
-    # if self._config.dvd_score_weight > 0.0:
-        # dvd_obs = {}
-        # dvd_data_dict = {}
-#         dvd_data_dict["pos"] = dvd_data[:, :, :, :, :3]
-#         dvd_data_dict["anchor"] = dvd_data[:, :, :, :, 3:6]
-#         dvd_data_dict["neg"] = dvd_data[:, :, :, :, 6:]
-              
-#         dvd_obs["image"] = tf.reshape(dvd_data_dict["pos"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
-#         _, dvd_pos_latent = self._wm.get_init_feat(dvd_obs)
-
-#         dvd_obs = {}
-#         dvd_obs["image"] = tf.reshape(dvd_data_dict["neg"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
-#         _, dvd_neg_latent = self._wm.get_init_feat(dvd_obs)
-
-#         dvd_obs = {}
-#         dvd_obs["image"] = tf.reshape(dvd_data_dict["anchor"], [self._config.batch_size*self._config.dvd_trajlen, 64, 64, 3])
-#         _, dvd_anchor_latent = self._wm.get_init_feat(dvd_obs)
-    # else:
-    #     dvd_pos_latent, dvd_neg_latent, dvd_anchor_latent = None, None, None
     t2 = time.time()
 
     metrics.update(mets)
@@ -276,9 +262,9 @@ def make_dataset(episodes, config):
 
 def make_dvd_dataset(dvd_data, config):
   example = next(iter(dvd_data))
-  types = example.dtype #{k: v.dtype for k, v in example.items()}
+  types = tf.float32 #example.dtype #{k: v.dtype for k, v in example.items()}
   shapes = () #{k: () for k, v in example.items()}
-  shapes2 = example.shape #{k: v.shape for k, v in example.items()}
+  # shapes2 = example.shape #{k: v.shape for k, v in example.items()}
   print("This is DVD types:", types)
   #shapes = {(None,) + v.shape[1:] for v in example}
   print("This is DVD shapes:", shapes)
@@ -286,9 +272,14 @@ def make_dvd_dataset(dvd_data, config):
   dataset = tf.data.Dataset.from_generator(generator, types, shapes)
 
   def wrapped_complex_calulation(placeholder):
-    return tf.py_function(func = dvd_data.__getitem__,
-                      inp = [],
-                      Tout = tf.float32)  # label
+    if config.dvd_classifier:
+      return tf.py_function(func = dvd_data.__getitem__,
+                        inp = [],
+                        Tout = (tf.float32, tf.float16))  # label
+    else:
+      return tf.py_function(func = dvd_data.__getitem__,
+                        inp = [],
+                        Tout = tf.float32)  # label
   
   dataset = dataset.map(wrapped_complex_calulation, num_parallel_calls=4)
   dataset = dataset.batch(config.batch_size, drop_remainder=True)
