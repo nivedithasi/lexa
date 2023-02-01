@@ -122,17 +122,23 @@ def main(logdir, config):
       transform_post = ComposeMix([[torchvision.transforms.ToTensor(), "img"],])
 
       if config.use_sth_sth:
-          dvd_data = VideoFolder(root=self.root_path,
-                               json_file_input=self.json_file_input_path,
-                               json_file_labels=self.json_file_labels_path,
-                                 clip_size= config.dvd_trajlen, #args.traj_length,
-                                 nclips=1,
-                                 step_size=1,
-                                 num_tasks=3, #args.num_tasks,
-                                 is_val=False,
-                                 transform_pre=transform_eval_pre,
-                                 transform_post=transform_post,
-                                 ) # Niveditha: add args back
+#           dvd_data = VideoFolder(root=self.root_path,
+#                                json_file_input=self.json_file_input_path,
+#                                json_file_labels=self.json_file_labels_path,
+#                                  clip_size= config.dvd_trajlen, #args.traj_length,
+#                                  nclips=1,
+#                                  step_size=1,
+#                                  num_tasks=3, #args.num_tasks,
+#                                  is_val=False,
+#                                  transform_pre=transform_eval_pre,
+#                                  transform_post=transform_post,
+#                                  ) # Niveditha: add args back
+          
+          dvd_data = SthSthFolder(root="/iris/u/nivsiyer/something_something/", manifest_csv="/iris/u/nivsiyer/something_something/manifest.csv",
+                                  clip_size=10, step_size=1, is_val=False,
+                                  transform_pre=None, transform_post=None,
+                                  augmentation_mappings_json=None, augmentation_types_todo=None,
+                                  is_test=False, robot_demo_transform=None, classifier=False)
       else:
           dvd_data = Ego4DVideoFolder(root= '/iris/u/nivsiyer/ego4d/videos2', manifest_csv='/iris/u/nivsiyer/ego4d/videos2/manifest.csv', 
                                     clip_size=10, step_size=1, is_val=False,
