@@ -144,7 +144,7 @@ class RobotVideoFolder():
           while not self.frames_exist(neg.iloc[0]):
             neg = self.csv[self.csv['label'] != anchor].sample(n=1)
             
-          glabel = random.choice(self.labels)
+          glabel = "object_interact"
           guide = self.csv[self.csv['label'] == glabel]
           g = guide.sample(n=1)
           guideclip = g.iloc[0]
