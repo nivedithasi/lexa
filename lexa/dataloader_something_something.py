@@ -15,7 +15,7 @@ from transforms_video import *
 import tensorflow as tf
 import pdb
 import time
-
+print
 from dataloader_parsed import Augmentor
 from tensorflow.keras.layers import Permute 
 from collections import namedtuple, defaultdict, Counter
@@ -36,8 +36,9 @@ class SthSthFolder():
         vidpath = "/iris/u/nivsiyer/something_something"
         self.vidpath = vidpath
         self.csv = pd.read_csv(manifest_csv)
+        print(self.csv.columns)
         self.labels = self.csv['numeric_label'].unique()
-        print(self.labels)
+#         print(self.labels)
         self.num_tasks = len(self.labels)
         self.classifier = classifier
         
@@ -154,12 +155,15 @@ class SthSthFolder():
         start_frame = '0'
                 
         def number_imgs(DIR):
+            print("this is DIR")
+            print
+            print([name for name in os.listdir(DIR)])
             return len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])
         
         folder = str(folder)
-        print(os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"))
+#         print(os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"))
         num_ims = number_imgs(os.path.join(self.vidpath, folder))
-        print( os.path.join(self.vidpath, folder+f"/{num_ims-1}.jpg"))
+#         print( os.path.join(self.vidpath, folder+f"/{num_ims-1}.jpg"))
         
         load1 = tf.keras.preprocessing.image.load_img(
               os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"),
@@ -175,6 +179,9 @@ class SthSthFolder():
             color_mode='rgb')
 
         ims.append(load2)
+        print("Printing in process")
+        print(ims)
+        print(type(ims))
         ims = tf.cast(tf.stack([tf.keras.preprocessing.image.img_to_array(x) for x in ims], 0), tf.float32) / 255.0
         return ims
     
@@ -191,17 +198,18 @@ class SthSthFolder():
         
         
     def __getitem__(self, indices = None, get_labels=False):
+        print("in getitem")
         if self.classifier:
           label = random.choice(self.labels)
-          pos = self.csv[self.csv['label'] == label]
+          pos = self.csv[self.csv['numeric_label'] == label]
           pos = pos.sample(n=1).iloc[0]
-          print("this is pos:", pos)
-          pos_data  = self.process(pos)
+#           print("this is pos:", pos)
+          pos_data  = self.process(pos['id'])
           finallabel = tf.cast(tf.stack(self.le.transform([label]))[0], tf.float16)
           return (pos_data, finallabel)
         else:
           item, anchor, neg, pos_anchor, neg_anchor, guideclip = self.getindices()
-          print("this is guideclip", guideclip)
+#           print("this is guideclip", guideclip)
           pos_data = self.process(item['id'])
           anchor_data  = self.process(anchor['id'])
           neg_data =  self.process(neg['id'])

@@ -12,6 +12,7 @@ import off_policy
 import torchvision
 from dataloader_parsed import VideoFolder
 from dataloader_ego4d import Ego4DVideoFolder
+from dataloader_something_something import SthSthFolder
 from args import load_args
 from collections import defaultdict
 from transforms_video import ComposeMix, RandomCropVideo, RandomRotationVideo, Scale
@@ -138,7 +139,7 @@ def main(logdir, config):
                                   clip_size=10, step_size=1, is_val=False,
                                   transform_pre=None, transform_post=None,
                                   augmentation_mappings_json=None, augmentation_types_todo=None,
-                                  is_test=False, robot_demo_transform=None, classifier=False)
+                                  is_test=False, robot_demo_transform=None, classifier=config.dvd_classifier)
       else:
           dvd_data = Ego4DVideoFolder(root= '/iris/u/nivsiyer/ego4d/videos2', manifest_csv='/iris/u/nivsiyer/ego4d/videos2/manifest.csv', 
                                     clip_size=10, step_size=1, is_val=False,
