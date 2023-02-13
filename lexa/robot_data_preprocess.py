@@ -56,7 +56,7 @@ def preprocess(object_interact, manifest, idx):
         os.makedirs(f"robot_videos/{idx}")
         for j in range(gifs[i].shape[0]):
             # get rid of alpha channel from gifs
-            imageio.imwrite(f"robot_videos/{i}/{str(j).zfill(7)}.jpg", gifs[i][j][:, :, :3])
+            imageio.imwrite(f"robot_videos/{idx}/{str(j).zfill(7)}.jpg", gifs[i][j][:, :, :3])
     
         manifest['label'].append('object_interact' if object_interact else 'no_object_interact')
         manifest['start_frame'].append(str(0).zfill(7))
