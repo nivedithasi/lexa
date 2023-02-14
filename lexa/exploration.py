@@ -54,7 +54,10 @@ class Plan2Explore(tools.Module):
     #     act=config.act)
     # self.dvd = networks.DenseHead(**dvdkw)
     if self._config.dvd_classifier:
-      self.dvd = networks.get_dvd_model_cls("dvd", [512, 512, 256, 128, 64, 32], 203)
+      if self._config.use_sth_sth:
+        self.dvd = networks.get_dvd_model_cls("dvd", [512, 512, 256, 128, 64, 32], 174)
+      else:
+        self.dvd = networks.get_dvd_model_cls("dvd", [512, 512, 256, 128, 64, 32], 203)
     else:
       if not self._config.dvd_dist:
           self.dvd = networks.get_dvd_model("dvd", [512, 512, 256, 128, 64, 32], 1)
