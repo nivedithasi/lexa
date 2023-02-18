@@ -1,7 +1,7 @@
 defaults:
 
-#   cluster: berkeley
-  cluster: stanford
+  cluster: berkeley
+  # cluster: stanford
 
   traindir: null
   evaldir: null
@@ -19,6 +19,7 @@ defaults:
   
   # Dataset type
   use_sth_sth: False
+  use_robot_videos: False
   
   # New
   dvd_trajlen: 2

@@ -12,16 +12,16 @@ import time
 
 from multiprocessing import Pool
 
-if config.cluster == "stanford":
-    path = "/nlp/scr2/nlp/ego4d/data/raw/ego4d/v1/annotations/moments_train.json"
-    ego_path = "/iris/u/nivsiyer/ego4d/"
-    vid_parent_path = "/nlp/scr2/nlp/ego4d/data/raw/ego4d/v1/full_scale/"
-    out_csv_path = "/iris/u/nivsiyer/ego4d/videos2/manifest.csv"
-else:
-    path = "/shared/group/ego4d/v1/annotations/moments_train.json
-    ego_path = "/home/ademi_adeniji/ego4d/"
-    vid_parent_path = "/shared/group/ego4d/v1/full_scale/"
-    out_csv_path = "/home/ademi_adeniji/ego4d/videos2/manifest.csv"
+# if config.cluster == "stanford":
+#     path = "/nlp/scr2/nlp/ego4d/data/raw/ego4d/v1/annotations/moments_train.json"
+#     ego_path = "/iris/u/nivsiyer/ego4d/"
+#     vid_parent_path = "/nlp/scr2/nlp/ego4d/data/raw/ego4d/v1/full_scale/"
+#     out_csv_path = "/iris/u/nivsiyer/ego4d/videos2/manifest.csv"
+# else:
+path = "/shared/group/ego4d/v1/annotations/moments_train.json"
+ego_path = "/shared/ademi_adeniji/ego4d/"
+vid_parent_path = "/shared/group/ego4d/v1/full_scale/"
+out_csv_path = "/shared/ademi_adeniji/ego4d/videosresize224/manifest.csv"
 
 f = open(path)
 # returns JSON object as 
@@ -30,7 +30,7 @@ data = json.load(f)
 
 
 resize_transform = transforms.Compose([
-    transforms.Resize((64, 64)),
+    transforms.Resize((224, 224)),
     # transforms.CenterCrop(224),
     transforms.ToTensor()]
 )
@@ -45,7 +45,7 @@ def process_vid(video):
         print("Issue with opening the video path:", video_name)
         return {}
 
-    vidpath = ego_path + "videos2" + "/" + video['video_uid']
+    vidpath = ego_path + "videosresize224" + "/" + video['video_uid']
 
     clips = video['clips']
     manifest = {}

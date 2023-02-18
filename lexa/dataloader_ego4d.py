@@ -37,7 +37,7 @@ class Ego4DVideoFolder():
                  augmentation_mappings_json=None, augmentation_types_todo=None,
                  is_test=False, robot_demo_transform=None, classifier=False): # add back args later
         
-        vidpath = "/iris/u/nivsiyer/ego4d/videos"
+        vidpath = "/shared/ademi_adeniji/ego4d/videos64"
         self.csv = pd.read_csv(manifest_csv)
         self.labels = self.csv['label'].unique()
         self.num_tasks = len(self.labels)

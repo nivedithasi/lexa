@@ -13,6 +13,7 @@ import torchvision
 from dataloader_parsed import VideoFolder
 from dataloader_ego4d import Ego4DVideoFolder
 from dataloader_something_something import SthSthFolder
+from dataloader_robot import RobotVideoFolder
 from args import load_args
 from collections import defaultdict
 from transforms_video import ComposeMix, RandomCropVideo, RandomRotationVideo, Scale
@@ -122,7 +123,13 @@ def main(logdir, config):
                ])
       transform_post = ComposeMix([[torchvision.transforms.ToTensor(), "img"],])
 
-      if config.use_sth_sth:
+      if config.use_robot_videos:
+          dvd_data = RobotVideoFolder(root='/home/ademi_adeniji/lexastuff/lexa_dvd/lexa/robot_videos', manifest_csv='/home/ademi_adeniji/lexastuff/lexa_dvd/lexa/robot_videos/manifest.csv', 
+                                    clip_size=10, step_size=1, is_val=False,
+                                    transform_pre=None, transform_post=None,
+                                    augmentation_mappings_json=None, augmentation_types_todo=None,
+                                    is_test=False, robot_demo_transform=None, classifier=config.dvd_classifier,)
+      elif config.use_sth_sth:
 #           dvd_data = VideoFolder(root=self.root_path,
 #                                json_file_input=self.json_file_input_path,
 #                                json_file_labels=self.json_file_labels_path,
@@ -141,7 +148,7 @@ def main(logdir, config):
                                   augmentation_mappings_json=None, augmentation_types_todo=None,
                                   is_test=False, robot_demo_transform=None, classifier=config.dvd_classifier)
       else:
-          dvd_data = Ego4DVideoFolder(root= '/iris/u/nivsiyer/ego4d/videos2', manifest_csv='/iris/u/nivsiyer/ego4d/videos2/manifest.csv', 
+          dvd_data = Ego4DVideoFolder(root= '/shared/ademi_adeniji/ego4d/videos64', manifest_csv='/shared/ademi_adeniji/ego4d/videos64/manifest.csv', 
                                     clip_size=10, step_size=1, is_val=False,
                                     transform_pre=None, transform_post=None,
                                     augmentation_mappings_json=None, augmentation_types_todo=None,

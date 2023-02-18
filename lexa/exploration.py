@@ -56,6 +56,8 @@ class Plan2Explore(tools.Module):
     if self._config.dvd_classifier:
       if self._config.use_sth_sth:
         self.dvd = networks.get_dvd_model_cls("dvd", [512, 512, 256, 128, 64, 32], 174)
+      elif self._config.use_robot_videos:
+        self.dvd = networks.get_dvd_model_cls("dvd", [512, 512, 256, 128, 64, 32], 1)
       else:
         self.dvd = networks.get_dvd_model_cls("dvd", [512, 512, 256, 128, 64, 32], 203)
     else:
@@ -66,7 +68,10 @@ class Plan2Explore(tools.Module):
     # assert(False)
     # self.dvd = self.mlp_dvd_model()
     self.bce = tf.keras.losses.BinaryCrossentropy(from_logits=False)
-    self.cce = tf.keras.losses.CategoricalCrossentropy(from_logits=False)
+    if self._config.use_robot_videos:
+      self.classification_loss = tf.keras.losses.BinaryCrossentropy(from_logits=False)
+    else:
+      self.classification_loss = tf.keras.losses.CategoricalCrossentropy(from_logits=False)
     self.acc = tf.keras.metrics.Accuracy()
     
     
@@ -120,7 +125,10 @@ class Plan2Explore(tools.Module):
         pred_rs = tf.transpose(pred, perm=[1, 0, 2])
         pred_rs = tf.stack([pred_rs[:, 0], pred_rs[:, -1]], 1)
         inp = tf.reshape(pred_rs, [self._config.batch_length * self._config.batch_size, self._config.dvd_trajlen * 50])
-        score = tf.reduce_mean(self.dvd(inp)[:, 12:17], 1)
+        if self._config.use_robot_videos:
+          score = self.dvd(inp)[:, 0]
+        else:
+          score = tf.reduce_mean(self.dvd(inp)[:, 12:17], 1)
       else:
         pred_rs = tf.transpose(pred, perm=[1, 0, 2])
         pred_rs = tf.stack([pred_rs[:, 0], pred_rs[:, -1]], 1)
@@ -189,7 +197,7 @@ class Plan2Explore(tools.Module):
         print("this is input:", inp)
         preds = self.dvd(inp)
         labels = label
-        loss = self.cce(labels, preds)
+        loss = self.classification_loss(labels, preds)
     else:
       with tf.GradientTape() as tape:
         dvd_reshaped= tf.reshape(dvd_data, [self._config.batch_size*4*self._config.dvd_trajlen, 64, 64, 3])
