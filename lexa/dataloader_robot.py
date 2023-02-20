@@ -187,7 +187,8 @@ class RobotVideoFolder():
             except:
               pass
           
-          ims = tf.cast(tf.stack([tf.keras.preprocessing.image.img_to_array(x) for x in ims], 0), tf.float32) / 255.0
+          _ims = [tf.convert_to_tensor(tf.keras.preprocessing.image.img_to_array(x), dtype=tf.float32) for x in ims]
+          ims = tf.cast(tf.stack(_ims, 0), tf.float32) / 255.0
           return ims
     
 
