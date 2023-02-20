@@ -109,7 +109,7 @@ class Ego4DVideoFolder():
                         ((self.traj_length * self.nclips) - len(imgs)))
         imgs = [tf.convert_to_tensor(img) for img in imgs]
         data = tf.stack(imgs)
-        data = tf.transpose(tf.convert_to_tensor(data), perm=[0, 2, 3, 1])
+        data = tf.transpose(data, perm=[0, 2, 3, 1])
         return data
     
     def frames_exist(self, video):
