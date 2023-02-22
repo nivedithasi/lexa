@@ -127,7 +127,12 @@ class Plan2Explore(tools.Module):
         inp = tf.reshape(pred_rs, [self._config.batch_length * self._config.batch_size, self._config.dvd_trajlen * 50])
         if self._config.use_robot_videos:
           score = self.dvd(inp)[:, 0]
+        elif self._config.use_sth_sth:
+          # for sth_sth
+          # 109, 94, 100, 45, 44, 20, 37, 87, 12, 
+          score = tf.reduce_mean(self.dvd(inp)[:, 44:46], 1)
         else:
+          # for Ego4D
           score = tf.reduce_mean(self.dvd(inp)[:, 12:17], 1)
       else:
         pred_rs = tf.transpose(pred, perm=[1, 0, 2])
