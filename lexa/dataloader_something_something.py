@@ -99,6 +99,10 @@ class SthSthFolder():
         if len(imgs) < (self.traj_length * self.nclips):
             imgs.extend([imgs[-1]] *
                         ((self.traj_length * self.nclips) - len(imgs)))
+#         print("this is the type before conversion to tensor")
+#         print(type(imgs[0]))
+#         import sys
+#         sys.exit()
         imgs = [tf.convert_to_tensor(img) for img in imgs]
         data = tf.stack(imgs)
         data = tf.transpose(data, perm=[0, 2, 3, 1])
@@ -114,17 +118,7 @@ class SthSthFolder():
             pos2 = pos.sample(n=2)
             positives1 = pos2.iloc[0]
             positives2 = pos2.iloc[1]
-#             bothdone = self.frames_exist(positives1) and self.frames_exist(positives2) #and (positives1.vidpath != positives2.vidpath)
 
-#           while not bothdone:
-#             anchor = random.choice(self.labels)
-#             pos = self.csv[self.csv['label'] == anchor]
-#             if len(pos) >= 2:
-#                 pos2 = pos.sample(n=2)
-#                 positives1 = pos2.iloc[0]
-#                 positives2 = pos2.iloc[1]
-#                 bothdone = self.frames_exist(positives1) and self.frames_exist(positives2) #and (positives1.vidpath != positives2.vidpath)
-          
           neg = self.csv[self.csv['label'] != anchor].sample(n=1)
 #           while not self.frames_exist(neg.iloc[0]):
 #             neg = self.csv[self.csv['label'] != anchor].sample(n=1)
@@ -147,6 +141,7 @@ class SthSthFolder():
     
     def process(self, folder):
         ims = []
+        imgs = []
         alpha = 0.3
         start_frame = '0'
                 
@@ -156,22 +151,45 @@ class SthSthFolder():
         folder = str(folder)
         num_ims = number_imgs(os.path.join(self.vidpath, folder))
         
-        load1 = tf.keras.preprocessing.image.load_img(
-              os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"),
-              grayscale=False,
-              color_mode='rgb'
-        )
-        ims.append(load1)
-        
-        
-        load2 = tf.keras.preprocessing.image.load_img(
-            os.path.join(self.vidpath, folder+f"/{num_ims-1}.jpg"),
-            grayscale=False,
-            color_mode='rgb')
+        from PIL import Image
+        from numpy import asarray
+        load1 = Image.open(os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"))
+        load1 = asarray(load1)
+        load1 = np.float32(load1)
+        imgs.append(load1)
 
-        ims.append(load2)
-        ims = tf.cast(tf.stack([tf.keras.preprocessing.image.img_to_array(x) for x in ims], 0), tf.float32) / 255.0
-        return ims
+#         load1 = tf.keras.preprocessing.image.load_img(
+#               os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"),
+#               grayscale=False,
+#               color_mode='rgb'
+#         )
+#         ims.append(load1)
+        
+        load2 = Image.open(os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"))
+        load2 = asarray(load2)
+        load2 = np.float32(load2)
+        imgs.append(load2)
+        
+#         load2 = tf.keras.preprocessing.image.load_img(
+#             os.path.join(self.vidpath, folder+f"/{num_ims-1}.jpg"),
+#             grayscale=False,
+#             color_mode='rgb')
+
+#         ims.append(load2)
+#         imgs = [tf.keras.preprocessing.image.img_to_array(x) for x in ims]
+        
+#         print("this is the type before conversion to tensor")
+#         print(type(ims[0]))
+#         import sys
+#         sys.exit()
+
+        imgs = [tf.convert_to_tensor(img) for img in imgs]
+        data = tf.stack(imgs)
+        data = tf.transpose(data, perm=[0, 2, 3, 1])
+        
+        
+#         ims = tf.cast(tf.stack([tf.keras.preprocessing.image.img_to_array(x) for x in ims], 0), tf.float32) / 255.0
+        return data
     
 
     def get_ims_labels(self):
@@ -187,6 +205,9 @@ class SthSthFolder():
         
     def __getitem__(self, indices = None, get_labels=False):
         if self.classifier:
+          print()
+          print("IN CLASSIFIER")
+          print()
           label = random.choice(self.labels)
           pos = self.csv[self.csv['numeric_label'] == label]
           pos = pos.sample(n=1).iloc[0]
