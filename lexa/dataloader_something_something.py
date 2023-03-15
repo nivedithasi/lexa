@@ -32,7 +32,7 @@ class SthSthFolder():
                  augmentation_mappings_json=None, augmentation_types_todo=None,
                  is_test=False, robot_demo_transform=None, classifier=False): # add back args later
         
-        vidpath = "/iris/u/nivsiyer/something_something"
+        vidpath = root
         self.vidpath = vidpath
         self.csv = pd.read_csv(manifest_csv)
         self.labels = self.csv['numeric_label'].unique()
@@ -143,7 +143,7 @@ class SthSthFolder():
         ims = []
         imgs = []
         alpha = 0.3
-        start_frame = '0'
+        
                 
         def number_imgs(DIR):
             return len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])
@@ -151,12 +151,11 @@ class SthSthFolder():
         folder = str(folder)
         num_ims = number_imgs(os.path.join(self.vidpath, folder))
         
-        from PIL import Image
-        from numpy import asarray
-        load1 = Image.open(os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"))
-        load1 = asarray(load1)
-        load1 = np.float32(load1)
-        imgs.append(load1)
+#         from PIL import Image
+#         from numpy import asarray
+#         # load1 = np.asarray(Image.open(os.path.join(self.vidpath, folder+f"/{start_frame}.jpg")))
+#         # load1 = np.float32(load1)
+#         # imgs.append(load1)
 
 #         load1 = tf.keras.preprocessing.image.load_img(
 #               os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"),
@@ -165,31 +164,62 @@ class SthSthFolder():
 #         )
 #         ims.append(load1)
         
-        load2 = Image.open(os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"))
-        load2 = asarray(load2)
-        load2 = np.float32(load2)
-        imgs.append(load2)
+#         # load2 = np.asarray(Image.open(os.path.join(self.vidpath, folder+f"/{end_frame}.jpg")))
+#         # load2 = np.float32(load2)
+#         # imgs.append(load2)
         
 #         load2 = tf.keras.preprocessing.image.load_img(
-#             os.path.join(self.vidpath, folder+f"/{num_ims-1}.jpg"),
+#             os.path.join(self.vidpath, folder+f"/{end_frame}.jpg"),
 #             grayscale=False,
 #             color_mode='rgb')
 
 #         ims.append(load2)
-#         imgs = [tf.keras.preprocessing.image.img_to_array(x) for x in ims]
+# #         imgs = [tf.keras.preprocessing.image.img_to_array(x) for x in ims]
         
-#         print("this is the type before conversion to tensor")
-#         print(type(ims[0]))
-#         import sys
-#         sys.exit()
+# #         print("this is the type before conversion to tensor")
+# #         print(type(ims[0]))
+# #         import sys
+# #         sys.exit()
 
-        imgs = [tf.convert_to_tensor(img) for img in imgs]
-        data = tf.stack(imgs)
-        data = tf.transpose(data, perm=[0, 2, 3, 1])
+# #         imgs = [tf.convert_to_tensor(img) for img in imgs]
+# #         data = tf.stack(imgs)
+# #         data = tf.transpose(data, perm=[0, 2, 3, 1])
         
         
 #         ims = tf.cast(tf.stack([tf.keras.preprocessing.image.img_to_array(x) for x in ims], 0), tf.float32) / 255.0
-        return data
+#         data = ims
+#         return data
+        # while True:
+        #   try:
+        start_frame = np.random.randint(0, num_ims * alpha)
+        # print("Version:", tf.__version__)
+        load1 = tf.keras.preprocessing.image.load_img(
+                os.path.join(self.vidpath, folder+f"/{start_frame}.jpg"),
+                grayscale=False,
+                color_mode='rgb',
+            )
+
+        ims.append(load1)
+          #   break
+          # except:
+          #   pass
+
+        # while True:
+        #   try:
+        end_frame = np.random.randint(num_ims - (num_ims * alpha), num_ims)
+        load2 = tf.keras.preprocessing.image.load_img(
+                os.path.join(self.vidpath, folder+f"/{end_frame}.jpg"),
+                grayscale=False,
+                color_mode='rgb',
+            )
+        ims.append(load2)
+            # break
+          # except:
+          #   pass
+
+        _ims = [tf.convert_to_tensor(tf.keras.preprocessing.image.img_to_array(x), dtype=tf.float32) for x in ims]
+        ims = tf.stack(_ims, 0)/ 255.0
+        return ims
     
 
     def get_ims_labels(self):
@@ -205,19 +235,23 @@ class SthSthFolder():
         
     def __getitem__(self, indices = None, get_labels=False):
         if self.classifier:
-          print()
-          print("IN CLASSIFIER")
-          print()
+          # print()
+          # print("IN CLASSIFIER")
+          # print()
+          t0 = time.time()
           label = random.choice(self.labels)
           pos = self.csv[self.csv['numeric_label'] == label]
           pos = pos.sample(n=1).iloc[0]
+          t1 = time.time()
           pos_data  = self.process(pos['id'])
+          t2 = time.time()
           finallabel = tf.cast(tf.stack(self.le.transform([label]))[0], tf.float16)
 #           for label_id in range(len(self.labels)):
 #               print("before our labels")
 #               print(self.labels[label_id], self.csv[self.csv['numeric_label'] == self.labels[label_id]].iloc[0]["template_cleaned"])
 #           import sys
 #           sys.exit()
+          # print("One sample time", time.time() - t2, t2 - t1, t1-t0)
           return (pos_data, finallabel)
         else:
           item, anchor, neg, pos_anchor, neg_anchor, guideclip = self.getindices()

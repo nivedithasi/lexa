@@ -130,6 +130,10 @@ def main(logdir, config):
                                     augmentation_mappings_json=None, augmentation_types_todo=None,
                                     is_test=False, robot_demo_transform=None, classifier=config.dvd_classifier,)
       elif config.use_sth_sth:
+          if os.path.exists("/scr-ssd/surajn/something_something/"):
+            path = "/scr-ssd/surajn/something_something/"
+          else:
+            path = "/scr/surajn/something_something/"
 #           dvd_data = VideoFolder(root=self.root_path,
 #                                json_file_input=self.json_file_input_path,
 #                                json_file_labels=self.json_file_labels_path,
@@ -142,7 +146,7 @@ def main(logdir, config):
 #                                  transform_post=transform_post,
 #                                  ) # Niveditha: add args back
           
-          dvd_data = SthSthFolder(root="/iris/u/nivsiyer/something_something/", manifest_csv="/iris/u/nivsiyer/something_something/manifest.csv",
+          dvd_data = SthSthFolder(root=path, manifest_csv=f"{path}manifest.csv",
                                   clip_size=10, step_size=1, is_val=False,
                                   transform_pre=None, transform_post=None,
                                   augmentation_mappings_json=None, augmentation_types_todo=None,

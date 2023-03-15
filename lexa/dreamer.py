@@ -281,10 +281,10 @@ def make_dvd_dataset(dvd_data, config):
                         inp = [],
                         Tout = tf.float32)  # label
   
-  dataset = dataset.map(wrapped_complex_calulation, num_parallel_calls=4)
+  dataset = dataset.map(wrapped_complex_calulation, num_parallel_calls=20)
   dataset = dataset.batch(config.batch_size, drop_remainder=True)
   
-  dataset = dataset.prefetch(10)
+  dataset = dataset.prefetch(1)
   return dataset
 
 def make_env(config, logger, mode, train_eps, eval_eps, use_goal_idx=False, log_per_goal=False):
